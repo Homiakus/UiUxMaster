@@ -15,13 +15,14 @@ var ErrEpochChanged = errors.New("fastcdp: render epoch changed during evidence 
 // verifier. Snapshot and Region are optional independently, but at least one
 // must be requested. RequireAfter is the last accepted render epoch; when
 // WaitForNewEpoch is true the collector blocks until a strictly newer epoch is
-// observed before capture begins.
+// observed before capture begins. MaxEpochRetries defaults to 2; a negative
+// value disables retry and fails immediately on an in-flight epoch change.
 type EvidenceRequest struct {
-	RequireAfter     uint64
-	WaitForNewEpoch  bool
-	Snapshot         *SnapshotOptions
-	Region           *CaptureRegionOptions
-	MaxEpochRetries  int
+	RequireAfter    uint64
+	WaitForNewEpoch bool
+	Snapshot        *SnapshotOptions
+	Region          *CaptureRegionOptions
+	MaxEpochRetries int
 }
 
 type EvidenceTiming struct {
@@ -56,11 +57,10 @@ func (p *WarmPage) CollectEvidence(ctx context.Context, conn *Connection, req Ev
 		return CollectedEvidence{}, fmt.Errorf("fastcdp: evidence request must include snapshot and/or region")
 	}
 	retries := req.MaxEpochRetries
-	if retries < 0 {
-		retries = 0
-	}
 	if retries == 0 {
 		retries = 2
+	} else if retries < 0 {
+		retries = 0
 	}
 
 	started := time.Now()
@@ -105,9 +105,9 @@ func (p *WarmPage) CollectEvidence(ctx context.Context, conn *Connection, req Ev
 
 func (p *WarmPage) captureStableAttempt(ctx context.Context, conn *Connection, req EvidenceRequest) (CollectedEvidence, error) {
 	var (
-		result CollectedEvidence
-		wg     sync.WaitGroup
-		mu     sync.Mutex
+		result   CollectedEvidence
+		wg       sync.WaitGroup
+		mu       sync.Mutex
 		firstErr error
 	)
 
