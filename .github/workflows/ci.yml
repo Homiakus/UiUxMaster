@@ -36,4 +36,4 @@ jobs:
         run: go vet ./...
 
       - name: Benchmark smoke
-        run: go run ./cmd/uiuxbench -nodes 100 -iterations 50 -warmup 10 -wggo-iterations 3 -wggo-warmup 1 | tee /tmp/uiuxbench.json
+        run: go run ./cmd/uiuxbench -nodes 100 -iterations 50 -warmup 10 -project-components 30 -project-iterations 3 -project-warmup 1 -wggo-iterations 3 -wggo-warmup 1 | tee /tmp/uiuxbench.json
