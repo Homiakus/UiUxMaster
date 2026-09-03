@@ -6,7 +6,7 @@ Detailed subordinate specifications:
 
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — ownership and evidence architecture;
 - [`docs/ULTRA_FAST_VISUAL_LOOP.md`](docs/ULTRA_FAST_VISUAL_LOOP.md) — low-latency rendering/verification architecture;
-- [`docs/ECOSYSTEM_INTEGRATION_PROGRAM.md`](docs/ECOSYSTEM_INTEGRATION_PROGRAM.md) — AutoTraceLab/Axiom/SncSinCore/SkillState/DeepSearch integration contracts;
+- [`docs/ECOSYSTEM_INTEGRATION_PROGRAM.md`](docs/ECOSYSTEM_INTEGRATION_PROGRAM.md) — Axiom/SncSinCore/SkillState/DeepSearch integration contracts and optional ecosystem reuse gates;
 - [`docs/RESEARCH_FOUNDATIONS.md`](docs/RESEARCH_FOUNDATIONS.md) — research → invariant traceability.
 
 ---
@@ -63,6 +63,8 @@ High-fidelity browser automation, deep research, durable orchestration and long-
 23. **Operational state != epistemic memory.** SncSinCore stores admitted knowledge/evidence, not current renderer/workflow state.
 24. **Evidence before promotion.** Skill/rule evolution requires replay/shadow/non-regression proof and rollback.
 25. **Integration must earn its complexity.** Every external library requires a before/after benchmark or eval showing value.
+26. **UiUxMaster owns frontend impact semantics.** Source/component/token/runtime-region impact analysis is a UiUxMaster domain capability, not an AutoTraceLab responsibility.
+27. **Reuse algorithms, not accidental product coupling.** External graph implementations may be reused only behind local ports after semantic fit, benchmark and maintenance review.
 
 ---
 
@@ -84,6 +86,10 @@ High-fidelity browser automation, deep research, durable orchestration and long-
                   │                                 │
                   └──────────────┬──────────────────┘
                                  ▼
+                    UiUxMaster Impact Engine
+                  source/component/token/runtime
+                                 │
+                                 ▼
                          Validation Router
                   scope + fidelity + confidence
                          + remaining budget
@@ -100,8 +106,8 @@ High-fidelity browser automation, deep research, durable orchestration and long-
                                  │
                  ┌───────────────┼────────────────┐
                  ▼               ▼                ▼
-          AutoTrace impact   deterministic    local visual
-          graph / scope      verifiers        critic/VLM
+          impact/scope       deterministic    local visual
+          correlation       verifiers        critic/VLM
                  │               │                │
                  └───────────────┴───────┬────────┘
                                          ▼
@@ -128,7 +134,7 @@ The hottest path is deliberately short:
 
 ```text
 change
-→ impact graph
+→ native impact engine
 → fidelity router
 → WGGo or resident CDP
 → deterministic verifier
@@ -226,8 +232,8 @@ internal/design        canonical rubric/rules/profiles
 internal/evidence      normalized evidence contracts
 internal/engine        validation policy/orchestration decisions
 internal/mcpserver     MCP adapter only
-internal/invalidation  impact-set integration + validation scope
-internal/impact        AutoTrace-compatible dependency/impact graph port
+internal/impact        native frontend dependency/impact model and resolver
+internal/invalidation  ImpactSet → validation-scope policy
 internal/fidelity      capability scanner + fidelity risk/router
 internal/runtime/fastrender  renderer-neutral L1 contract
 internal/runtime/wggo        WGGo adapter
@@ -245,6 +251,8 @@ internal/eval           adversarial/replay/benchmark corpus
 ```
 
 Domain packages depend on local interfaces. External library types do not leak across ownership boundaries.
+
+`internal/impact` is a **native UiUxMaster subsystem**. It must not expose AutoTraceLab types or assume AutoTraceLab process/block semantics.
 
 ---
 
@@ -296,29 +304,34 @@ Feature scanner tracks unsupported CSS/functions, canvas/WebGL, SVG features, sh
 
 ---
 
-# 8. Incremental invalidation — AutoTraceLab integration (P0)
+# 8. UiUxMaster Incremental Impact Engine (P0)
 
-AutoTraceLab is integrated for the **impact/dependency kernel**, not as a React/UI application dependency.
+The impact engine is a **UiUxMaster-native frontend analysis subsystem**. Its job is to answer one product-specific question:
+
+> Given this source/design/runtime change, what is the smallest conservative set of UI states and rendered regions that must be revalidated?
+
+It is not a generic process-flow editor and must not inherit process-simulation semantics from AutoTraceLab.
 
 Target graph:
 
 ```text
 SourceFile
-→ Module/StyleSheet/DesignToken
-→ Component/Variant
+→ Module / StyleSheet / DesignToken
+→ Component / Variant
 → ComponentInstance
-→ Route/Page
+→ Route / Story / Page
 → SemanticElementRef
 → RenderRegion
-→ Viewport/Theme/Scenario
+→ Viewport / Theme / Scenario
 ```
 
-## 8.1 Upstream extraction/stabilization
+## 8.1 Native graph kernel
 
-Before direct dependency, expose/extract a domain-neutral Go package from AutoTraceLab concepts:
+Implement the minimum graph machinery required by this domain directly under UiUxMaster:
 
 ```text
-pkg/impactgraph/
+internal/impact/
+  model.go
   graph.go
   builder.go
   reverse_index.go
@@ -326,19 +339,23 @@ pkg/impactgraph/
   dirty.go
   query.go
   snapshot.go
+  resolver.go
 ```
 
 Required properties:
 
+- frontend-specific typed node/edge kinds;
 - deterministic ordering;
 - forward/reverse adjacency;
-- SCC + condensation DAG;
+- SCC + condensation DAG for cyclic module/component dependencies;
 - bounded dirty propagation;
-- immutable/read-optimized snapshot + cheap delta;
+- immutable/read-optimized snapshot + cheap delta/update path;
 - stable IDs;
-- versioned serialization;
-- no React/browser dependency;
+- versioned serialization only if persistence proves useful;
+- no renderer/browser/React runtime dependency in the graph kernel itself;
 - 100/1k/10k/100k-node benchmarks.
+
+Do not create a generic graph framework beyond what UiUxMaster needs.
 
 ## 8.2 UiUxMaster port
 
@@ -358,7 +375,8 @@ Inputs start pragmatic rather than waiting for a perfect compiler:
 4. CSS custom-property definitions/references;
 5. explicit component/test/design IDs;
 6. route/story registry;
-7. runtime semantic refs learned from L1/L2.
+7. runtime semantic refs learned from L1/L2;
+8. optional framework adapters for React/Vue/Svelte when measured value justifies them.
 
 ## 8.3 Invalidation rules
 
@@ -367,7 +385,9 @@ Inputs start pragmatic rather than waiting for a perfect compiler:
 - local token → consumers;
 - global reset/typography/theme token → broad representative-page set;
 - SCC/cycle → invalidate SCC as one unit;
-- uncertain ownership → conservative expansion.
+- unknown dynamic import/runtime ownership → conservative expansion;
+- uncertain ownership → conservative expansion;
+- user-declared critical routes may force wider validation regardless of graph locality.
 
 ## 8.4 Performance/quality gates
 
@@ -378,9 +398,34 @@ Initial targets to validate:
 - 100k-node bounded local change p95 <20 ms;
 - no full traversal on known leaf edit;
 - incremental/full recompute parity;
-- false-negative mutation suite passes.
+- false-negative mutation suite passes;
+- framework adapters cannot silently reduce conservative coverage.
 
 Exit: local edits no longer cause whole-site verification by default.
+
+## 8.5 AutoTraceLab optional reuse gate — P3/reference only
+
+AutoTraceLab is primarily a system for building, tracing and analysing block/process diagrams. It is **not** the source of truth or mandatory dependency for UiUxMaster frontend impact analysis.
+
+After the native `internal/impact` contracts, fixtures and benchmarks exist, individual algorithms may be reviewed for reuse, for example:
+
+- deterministic SCC implementation;
+- condensation DAG construction;
+- generic reverse-adjacency helpers;
+- dirty/incremental recomputation primitives;
+- graph snapshot or deterministic ordering utilities.
+
+Reuse is allowed only if all gates pass:
+
+1. the primitive is genuinely domain-neutral;
+2. it can be isolated without importing AutoTraceLab application/process/UI semantics;
+3. its API fits UiUxMaster local ports without leaking foreign types;
+4. benchmark shows equal or better latency/allocation/maintainability than the native implementation;
+5. correctness fixtures and mutation tests remain green;
+6. license/provenance is compatible;
+7. dependency cost is lower than copying/maintaining a tiny stable primitive where licensing permits.
+
+Otherwise keep the UiUxMaster-native implementation.
 
 ---
 
@@ -391,7 +436,7 @@ UiUxMaster startup
 → start renderer/browser pools once
 → open/warm representative pages/stories once
 → source change
-→ impact scope
+→ native impact scope
 → HMR/targeted state update
 → render epoch changes
 → targeted L1/L2 evidence
@@ -466,7 +511,22 @@ Never claim system speedup without p50/p95/p99 distributions and a defined scena
 - Playwright Chromium/Firefox/WebKit TruthPath;
 - Lightpanda structural-only experiments, never pixel truth.
 
-## Fixtures
+## Impact-engine implementations
+
+Benchmark the native implementation first. Optional external graph primitives are compared only after the native baseline is stable.
+
+Metrics include:
+
+- full build;
+- one-leaf update;
+- shared-component update;
+- global-token invalidation;
+- SCC update;
+- 1k/10k/100k node graphs;
+- allocations;
+- false-negative mutation coverage.
+
+## UI fixtures
 
 1. static marketing page;
 2. flex/grid-heavy landing;
@@ -474,12 +534,12 @@ Never claim system speedup without p50/p95/p99 distributions and a defined scena
 4. React/Vue SPA;
 5. custom fonts;
 6. SVG-heavy UI;
-7. 100/1k/10k nodes;
+7. 100/1k/10k DOM nodes;
 8. data-dense professional UI;
 9. complex interactive component;
 10. unsupported-feature/fidelity traps.
 
-## Operations
+## Runtime operations
 
 - cold start;
 - warm acquire;
@@ -797,9 +857,17 @@ Exit: research improves knowledge freshness while the local edit loop remains in
 
 ---
 
-# 18. IRIS / RepoArk / WebGate integration gates
+# 18. Optional ecosystem reuse and operational gates
 
-## IRIS patterns — P2
+## 18.1 AutoTraceLab graph primitives — P3/reference only
+
+AutoTraceLab is **not** a runtime dependency or impact-analysis owner for UiUxMaster.
+
+Use it only as a source to review individual domain-neutral graph techniques after native UiUxMaster contracts and tests exist. See §8.5.
+
+Do not import the AutoTraceLab React application, process simulator, block-diagram domain, scheduling semantics or scene model.
+
+## 18.2 IRIS patterns — P2
 
 Align a small compatibility schema around:
 
@@ -809,13 +877,13 @@ Claim / Evidence / Artifact / Provenance / Confidence / Scope
 
 Do not import the entire IRIS Studio application. Create a shared compatibility package only when at least two projects need the same stable schema and duplication is a measurable maintenance problem.
 
-## RepoArk — P3
+## 18.3 RepoArk — P3
 
 No runtime dependency. Consider later for benchmark/release artifact archival, backup and reproducibility snapshots.
 
 Activation gate: losing/reproducing benchmark/release history has become an operational problem.
 
-## WebGate — P3
+## 18.4 WebGate — P3
 
 No local-runtime dependency now. Consider only when remote browser/device workers become a committed feature.
 
@@ -911,15 +979,18 @@ Exit: all core tests/vet/race green; external vendor types remain behind adapter
 - [ ] WGGo/CDP/Rod/chromedp/warm Playwright measurements;
 - [ ] p50/p95/p99 + fidelity artifacts.
 
-### 2B AutoTrace impact graph
+### 2B UiUxMaster Incremental Impact Engine
 
-- [ ] define local port/fixtures;
-- [ ] stabilize/extract domain-neutral AutoTrace graph kernel;
+- [ ] define native `ImpactResolver`/`ImpactSet` contracts and fixtures;
+- [ ] implement frontend-specific node/edge model;
 - [ ] source/import/CSS-token analyzers;
 - [ ] reverse index/SCC/dirty propagation;
+- [ ] route/story/component ownership graph;
 - [ ] runtime semantic-ref binding;
+- [ ] conservative fallback for uncertain dynamic relationships;
 - [ ] false-negative mutation suite;
-- [ ] feed `ImpactSet` to router.
+- [ ] feed `ImpactSet` to router;
+- [ ] benchmark native implementation before considering any external graph primitive.
 
 ### 2C WGGo FastRender
 
@@ -1079,9 +1150,10 @@ Inject controlled defects:
 - tiny targets;
 - dark-theme mismatch;
 - card soup/chrome excess;
-- WGGo fidelity traps: unsupported CSS, fonts, SVG, browser APIs, canvas/WebGL, shadow DOM, filters/masks.
+- WGGo fidelity traps: unsupported CSS, fonts, SVG, browser APIs, canvas/WebGL, shadow DOM, filters/masks;
+- impact-engine traps: dynamic import, re-export cycle, shared token, CSS cascade, runtime-only component instance, route alias.
 
-Measure detection recall, false positives, localization, severity, repair success, regression, FastRender false PASS/FAIL, parity, latency/cost.
+Measure detection recall, false positives, localization, severity, repair success, regression, impact false-negative rate, FastRender false PASS/FAIL, parity, latency/cost.
 
 ## Phase 15 — MCP productization
 
@@ -1105,14 +1177,15 @@ Measure detection recall, false positives, localization, severity, repair succes
 - license/provenance inventory for dependencies/models/renderers;
 - reference designs used for abstract principles, not unauthorized reproduction.
 
-## Phase 17 — RepoArk/WebGate operational expansion
+## Phase 17 — Optional ecosystem/operational expansion
 
 Only after activation gates:
 
+- inspect isolated AutoTraceLab graph primitives only if native impact benchmarks reveal a real gap;
 - RepoArk for benchmark/release artifact archival/mirroring;
 - WebGate for authenticated resilient remote browser/device workers.
 
-Neither is required for first production UiUxMaster.
+None is required for the first production UiUxMaster.
 
 ---
 
@@ -1126,19 +1199,22 @@ This sequence is mandatory because later layers depend on evidence/contracts fro
 2. Upgrade Go to 1.26+.
 3. Add race CI.
 4. Add dependency/license inventory.
-5. Pin Axiom/SncSinCore/SkillState/AutoTrace-kernel versions/commits.
+5. Pin Axiom/SncSinCore/SkillState versions/commits when integration starts.
 6. ADR ecosystem ownership boundaries.
+7. Record that AutoTraceLab is not a required dependency; only isolated graph primitives may later pass an optional reuse gate.
 
-## E1 — AutoTrace impact graph
+## E1 — Native UiUxMaster Impact Engine
 
-1. Define `ImpactResolver` port and fixtures.
-2. Stabilize/extract AutoTrace domain-neutral Go graph package.
-3. Source/import/CSS-token analyzers.
-4. Reverse indexes + SCC + dirty propagation.
-5. Runtime semantic refs.
-6. Router integration.
-7. Benchmarks.
-8. False-negative mutation suite.
+1. Define `ImpactResolver`, `ImpactSet`, node/edge kinds and fixtures.
+2. Implement native graph kernel under `internal/impact`.
+3. Add source/import/CSS-token analyzers.
+4. Add reverse indexes + SCC + dirty propagation.
+5. Add route/story/component ownership.
+6. Bind runtime semantic refs.
+7. Integrate router.
+8. Benchmark 1k/10k/100k graphs.
+9. Build false-negative mutation suite.
+10. Only after a stable native baseline, optionally compare isolated AutoTraceLab graph primitives; adopt none unless they clearly win on the defined gates.
 
 ## E2 — Axiom control plane
 
@@ -1199,19 +1275,23 @@ This sequence is mandatory because later layers depend on evidence/contracts fro
 5. Privacy/scope isolation.
 6. License/provenance report.
 7. End-to-end bare-vs-integrated held-out eval.
+8. Re-review every optional external dependency and remove any that does not still justify its complexity.
 
-Full detailed contracts and tests live in [`docs/ECOSYSTEM_INTEGRATION_PROGRAM.md`](docs/ECOSYSTEM_INTEGRATION_PROGRAM.md).
+Full detailed contracts and tests live in [`docs/ECOSYSTEM_INTEGRATION_PROGRAM.md`](docs/ECOSYSTEM_INTEGRATION_PROGRAM.md); that document must preserve the same ownership boundary: the UiUxMaster impact engine is native, while AutoTraceLab is optional/reference-only.
 
 ---
 
 # 22. Success metrics
 
-## Impact graph
+## Impact engine
 
 - % edits avoiding whole-page/site scan;
-- impact p95;
+- impact p50/p95/p99;
 - false-negative scope rate;
-- average affected regions.
+- average affected regions;
+- full vs incremental recompute parity;
+- allocations/update;
+- dynamic/framework fallback frequency.
 
 ## Fast runtime
 
@@ -1265,7 +1345,9 @@ Full detailed contracts and tests live in [`docs/ECOSYSTEM_INTEGRATION_PROGRAM.m
 - No second scheduler inside SkillState.
 - No operational state stored as SncSinCore truth.
 - No DeepSearch dependency in local hot path.
-- No AutoTraceLab React application imported into UiUxMaster.
+- No AutoTraceLab runtime dependency for UiUxMaster impact analysis.
+- No AutoTraceLab process/block-diagram/React domain imported into `internal/impact`.
+- No generic graph framework unless the native frontend impact problem demonstrably requires it.
 - No duplicated full history/evidence across Axiom, SncSinCore and SkillState; use digests/references and plane-specific projections.
 - No VLM opinion promoted directly into a skill.
 - No RepoArk/WebGate runtime dependency before activation gates.
@@ -1298,7 +1380,8 @@ A run is not complete merely because a screenshot matches baseline, FastRender p
 - p50/p95/p99 recorded by tier;
 - renderer/browser processes reused;
 - normal source edit does not navigate;
-- AutoTrace impact graph bounds validation scope;
+- native UiUxMaster impact engine bounds validation scope;
+- impact false-negative mutation suite passes;
 - WGGo enabled only for calibrated classes;
 - direct RGBA path avoids PNG round trips;
 - resident Chromium provides warm Blink truth;
@@ -1314,23 +1397,27 @@ A run is not complete merely because a screenshot matches baseline, FastRender p
 Execute in this order:
 
 1. **E0:** upgrade UiUxMaster to Go 1.26+ and add race CI; record baseline before dependency integration.
-2. Add ADR for runtime tiers + ecosystem ownership boundaries.
+2. Add ADR for runtime tiers + ecosystem ownership boundaries, explicitly documenting native ownership of the impact engine.
 3. Build benchmark harness before locking WGGo/chromedp/Rod choices.
-4. Define `internal/impact` port and AutoTrace impact fixtures.
-5. Determine whether AutoTraceLab already has a reusable Go graph kernel; if not, extract/stabilize one upstream before dependency.
-6. Add `internal/fidelity` capability/risk scanner.
-7. Add renderer-neutral `internal/runtime/fastrender` interface.
-8. Benchmark WGGo on static/grid/dashboard/SPA/SVG/100–10k-node fixtures.
-9. Implement direct RGBA crop/diff if WGGo qualifies.
-10. Implement resident `chrome-headless-shell` + direct-CDP benchmark path.
-11. Add HMR/render epoch and remove hot-loop reload/networkidle.
-12. Bind AutoTrace impact nodes to runtime semantic refs and route validation by `ImpactSet`.
-13. Add deterministic overflow/clip/overlap checks.
-14. Only after the data plane is measured stable, integrate **Axiom** `DesignPolishRun` control plane.
-15. Define **SncSinCore** design-memory ontology/admission and start embedded `epmemory`.
-16. Add **SkillState** bounded reasoning projection + SncSinCore MemoryPort.
-17. Build local semantic critic and memory-assisted critique eval.
-18. Build controlled skill-evolution replay/shadow gates.
-19. Add **DeepSearch** as optional research sidecar with SncSinCore admission.
-20. Build FastRender/FastBrowser/TruthPath parity corpus and full adversarial evals.
-21. Run bare-vs-integrated end-to-end benchmark; keep each integration only if it improves the intended metric without unacceptable latency/complexity regression.
+4. Define native `internal/impact` contracts, node/edge model and frontend-specific fixtures.
+5. Implement minimal native graph kernel: forward/reverse indexes, SCC, dirty propagation, deterministic snapshots.
+6. Add JS/TS/template import, CSS module and CSS custom-property analyzers.
+7. Add route/story/component ownership mapping and conservative fallback policy.
+8. Add `internal/fidelity` capability/risk scanner.
+9. Add renderer-neutral `internal/runtime/fastrender` interface.
+10. Benchmark WGGo on static/grid/dashboard/SPA/SVG/100–10k-node fixtures.
+11. Implement direct RGBA crop/diff if WGGo qualifies.
+12. Implement resident `chrome-headless-shell` + direct-CDP benchmark path.
+13. Add HMR/render epoch and remove hot-loop reload/networkidle.
+14. Bind native impact nodes to runtime semantic refs and route validation by `ImpactSet`.
+15. Add deterministic overflow/clip/overlap checks.
+16. Build impact false-negative mutation tests and benchmark 1k/10k/100k graphs.
+17. **Optional only after step 16:** inspect isolated AutoTraceLab SCC/DAG/incremental primitives and compare against the native baseline; do not adopt by default.
+18. Only after the data plane is measured stable, integrate **Axiom** `DesignPolishRun` control plane.
+19. Define **SncSinCore** design-memory ontology/admission and start embedded `epmemory`.
+20. Add **SkillState** bounded reasoning projection + SncSinCore MemoryPort.
+21. Build local semantic critic and memory-assisted critique eval.
+22. Build controlled skill-evolution replay/shadow gates.
+23. Add **DeepSearch** as optional research sidecar with SncSinCore admission.
+24. Build FastRender/FastBrowser/TruthPath parity corpus and full adversarial evals.
+25. Run bare-vs-integrated end-to-end benchmark; keep each integration only if it improves the intended metric without unacceptable latency/complexity regression.
