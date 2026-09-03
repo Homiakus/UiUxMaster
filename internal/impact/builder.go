@@ -149,3 +149,25 @@ func (b *Builder) PlaceInstance(instanceID, pageID, regionID string) error {
 	}
 	return b.graph.AddEdge(Edge{From: instanceID, To: regionID, Kind: EdgeAffectsRegion})
 }
+
+// BindInstanceRuntime connects a known component instance to the semantic DOM
+// reference and concrete region observed by L1/L2. Runtime refs are evidence
+// bindings; source analyzers do not invent them.
+func (b *Builder) BindInstanceRuntime(instanceID, semanticRefID, regionID string) error {
+	if instanceID == "" || semanticRefID == "" || regionID == "" {
+		return fmt.Errorf("impact: instance, semantic ref and region are required")
+	}
+	if err := b.graph.AddNode(Node{ID: instanceID, Kind: NodeComponentInstance}); err != nil {
+		return err
+	}
+	if err := b.graph.AddNode(Node{ID: semanticRefID, Kind: NodeSemanticElement}); err != nil {
+		return err
+	}
+	if err := b.graph.AddNode(Node{ID: regionID, Kind: NodeRenderRegion}); err != nil {
+		return err
+	}
+	if err := b.graph.AddEdge(Edge{From: instanceID, To: semanticRefID, Kind: EdgeMapsToRuntimeRef}); err != nil {
+		return err
+	}
+	return b.graph.AddEdge(Edge{From: semanticRefID, To: regionID, Kind: EdgeAffectsRegion})
+}
