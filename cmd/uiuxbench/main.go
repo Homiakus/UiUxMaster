@@ -11,11 +11,13 @@ import (
 	"time"
 
 	"github.com/Homiakus/UiUxMaster/internal/impact"
+	"github.com/Homiakus/UiUxMaster/internal/runtime/fastrender"
+	"github.com/Homiakus/UiUxMaster/internal/runtime/wggo"
 )
 
 type result struct {
 	Scenario   string  `json:"scenario"`
-	Nodes      int     `json:"nodes"`
+	Nodes      int     `json:"nodes,omitempty"`
 	Iterations int     `json:"iterations"`
 	P50US      float64 `json:"p50_us"`
 	P95US      float64 `json:"p95_us"`
@@ -26,18 +28,21 @@ type result struct {
 
 func main() {
 	nodes := flag.Int("nodes", 1000, "synthetic graph node count")
-	iterations := flag.Int("iterations", 5000, "measured iterations per scenario")
-	warmup := flag.Int("warmup", 200, "warmup iterations per scenario")
+	iterations := flag.Int("iterations", 5000, "measured impact iterations per scenario")
+	warmup := flag.Int("warmup", 200, "impact warmup iterations per scenario")
+	wggoIterations := flag.Int("wggo-iterations", 30, "measured WGGo render iterations")
+	wggoWarmup := flag.Int("wggo-warmup", 3, "WGGo warmup iterations")
 	flag.Parse()
 
-	if *nodes < 2 || *iterations < 1 || *warmup < 0 {
-		fmt.Fprintln(os.Stderr, "nodes>=2, iterations>=1 and warmup>=0 are required")
+	if *nodes < 2 || *iterations < 1 || *warmup < 0 || *wggoIterations < 1 || *wggoWarmup < 0 {
+		fmt.Fprintln(os.Stderr, "nodes>=2, iterations>=1, wggo-iterations>=1 and warmups>=0 are required")
 		os.Exit(2)
 	}
 
 	benchmarks := []result{
 		benchmarkLeaf(*nodes, *iterations, *warmup),
 		benchmarkFanout(*nodes, *iterations, *warmup),
+		benchmarkWGGoStatic(*wggoIterations, *wggoWarmup),
 	}
 
 	enc := json.NewEncoder(os.Stdout)
@@ -82,6 +87,27 @@ func benchmarkFanout(nodes, iterations, warmup int) result {
 	return measure("impact_fanout", nodes, iterations, warmup, func() error {
 		_, err := resolver.ApplyChanges(ctx, impact.ChangeSet{NodeIDs: []string{"token:shared"}})
 		return err
+	})
+}
+
+func benchmarkWGGoStatic(iterations, warmup int) result {
+	r := wggo.New(wggo.Config{})
+	ctx := context.Background()
+	req := fastrender.Request{
+		HTML: []byte(`<!doctype html><html><body><main class="shell"><section class="hero"><p class="eyebrow">UIUXMASTER</p><h1>Fast visual engineering loop</h1><p class="copy">Render only what changed and escalate only when fidelity requires it.</p><button>Inspect</button></section><aside class="metrics"><b>12 ms</b><span>targeted evidence</span></aside></main></body></html>`),
+		CSS: []byte(`html,body{margin:0;font-family:sans-serif}.shell{display:grid;grid-template-columns:2fr 1fr;gap:32px;padding:48px}.hero{display:flex;flex-direction:column;gap:16px}.eyebrow{font-size:12px;letter-spacing:.12em}.hero h1{font-size:52px;line-height:1;margin:0;max-width:700px}.copy{font-size:18px;max-width:620px}.hero button{width:120px;height:42px}.metrics{display:flex;flex-direction:column;justify-content:end}`),
+		Width:  1280,
+		Height: 720,
+	}
+	return measure("wggo_static_render", 0, iterations, warmup, func() error {
+		evidence, err := r.Render(ctx, req)
+		if err != nil {
+			return err
+		}
+		if evidence.RGBA == nil {
+			return fmt.Errorf("wggo benchmark returned nil RGBA")
+		}
+		return nil
 	})
 }
 
