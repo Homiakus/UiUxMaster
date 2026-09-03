@@ -67,6 +67,28 @@ func (b *Builder) StyleSheet(id string) error {
 	return b.graph.AddNode(Node{ID: id, Kind: NodeStyleSheet})
 }
 
+// SourceBacksStyle connects a source file to the stylesheet parsed from it.
+func (b *Builder) SourceBacksStyle(sourceID, styleID string) error {
+	if err := b.SourceFile(sourceID); err != nil {
+		return err
+	}
+	if err := b.StyleSheet(styleID); err != nil {
+		return err
+	}
+	return b.graph.AddEdge(Edge{From: sourceID, To: styleID, Kind: EdgeDependsOn})
+}
+
+// StyleImportedByModule records stylesheet -> importing module propagation.
+func (b *Builder) StyleImportedByModule(styleID, moduleID string) error {
+	if err := b.StyleSheet(styleID); err != nil {
+		return err
+	}
+	if err := b.Module(moduleID); err != nil {
+		return err
+	}
+	return b.graph.AddEdge(Edge{From: styleID, To: moduleID, Kind: EdgeStyles})
+}
+
 // StyleComponent records that a stylesheet can affect a component.
 func (b *Builder) StyleComponent(styleID, componentID string) error {
 	if err := b.StyleSheet(styleID); err != nil {
