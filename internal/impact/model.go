@@ -4,21 +4,21 @@ package impact
 type NodeKind string
 
 const (
-	NodeSourceFile       NodeKind = "source_file"
-	NodeModule           NodeKind = "module"
-	NodeStyleSheet       NodeKind = "style_sheet"
-	NodeDesignToken      NodeKind = "design_token"
-	NodeComponent        NodeKind = "component"
-	NodeComponentVariant NodeKind = "component_variant"
+	NodeSourceFile        NodeKind = "source_file"
+	NodeModule            NodeKind = "module"
+	NodeStyleSheet        NodeKind = "style_sheet"
+	NodeDesignToken       NodeKind = "design_token"
+	NodeComponent         NodeKind = "component"
+	NodeComponentVariant  NodeKind = "component_variant"
 	NodeComponentInstance NodeKind = "component_instance"
-	NodeRoute            NodeKind = "route"
-	NodeStory            NodeKind = "story"
-	NodePage             NodeKind = "page"
-	NodeSemanticElement  NodeKind = "semantic_element"
-	NodeRenderRegion     NodeKind = "render_region"
-	NodeViewport         NodeKind = "viewport"
-	NodeTheme            NodeKind = "theme"
-	NodeScenario         NodeKind = "scenario"
+	NodeRoute             NodeKind = "route"
+	NodeStory             NodeKind = "story"
+	NodePage              NodeKind = "page"
+	NodeSemanticElement   NodeKind = "semantic_element"
+	NodeRenderRegion      NodeKind = "render_region"
+	NodeViewport          NodeKind = "viewport"
+	NodeTheme             NodeKind = "theme"
+	NodeScenario          NodeKind = "scenario"
 )
 
 // EdgeKind identifies a dependency/impact relationship. Edges point in the
@@ -26,16 +26,16 @@ const (
 type EdgeKind string
 
 const (
-	EdgeImports             EdgeKind = "imports"
-	EdgeStyles              EdgeKind = "styles"
-	EdgeConsumesToken       EdgeKind = "consumes_token"
-	EdgeRenders             EdgeKind = "renders"
-	EdgeInstantiates        EdgeKind = "instantiates"
-	EdgeAppearsOn           EdgeKind = "appears_on"
-	EdgeMapsToRuntimeRef    EdgeKind = "maps_to_runtime_ref"
-	EdgeAffectsRegion       EdgeKind = "affects_region"
+	EdgeImports              EdgeKind = "imports"
+	EdgeStyles               EdgeKind = "styles"
+	EdgeConsumesToken        EdgeKind = "consumes_token"
+	EdgeRenders              EdgeKind = "renders"
+	EdgeInstantiates         EdgeKind = "instantiates"
+	EdgeAppearsOn            EdgeKind = "appears_on"
+	EdgeMapsToRuntimeRef     EdgeKind = "maps_to_runtime_ref"
+	EdgeAffectsRegion        EdgeKind = "affects_region"
 	EdgeParticipatesScenario EdgeKind = "participates_in_scenario"
-	EdgeDependsOn           EdgeKind = "depends_on"
+	EdgeDependsOn            EdgeKind = "depends_on"
 )
 
 // Node is a stable graph entity. ID must be deterministic across equivalent
@@ -60,9 +60,12 @@ type Snapshot struct {
 }
 
 // ChangeSet is the smallest input accepted by the first impact resolver.
-// Source analyzers will translate file/token/component changes into these IDs.
+// Source analyzers translate file/token/component changes into these IDs and
+// explicitly surface any unresolved relationships rather than hiding them.
 type ChangeSet struct {
-	NodeIDs []string `json:"node_ids"`
+	NodeIDs   []string `json:"node_ids"`
+	Uncertain bool     `json:"uncertain,omitempty"`
+	Reasons   []string `json:"reasons,omitempty"`
 }
 
 // ImpactSet is the conservative validation scope derived from a change.
@@ -72,5 +75,6 @@ type ImpactSet struct {
 	RouteIDs     []string `json:"route_ids,omitempty"`
 	RegionIDs    []string `json:"region_ids,omitempty"`
 	UnknownIDs   []string `json:"unknown_ids,omitempty"`
+	Reasons      []string `json:"reasons,omitempty"`
 	Broad        bool     `json:"broad"`
 }
