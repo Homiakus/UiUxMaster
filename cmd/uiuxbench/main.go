@@ -8,6 +8,7 @@ import (
 	"os"
 	"runtime"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/Homiakus/UiUxMaster/internal/impact"
@@ -30,18 +31,24 @@ func main() {
 	nodes := flag.Int("nodes", 1000, "synthetic graph node count")
 	iterations := flag.Int("iterations", 5000, "measured impact iterations per scenario")
 	warmup := flag.Int("warmup", 200, "impact warmup iterations per scenario")
+	projectComponents := flag.Int("project-components", 200, "synthetic frontend component count")
+	projectIterations := flag.Int("project-iterations", 50, "measured project-index build iterations")
+	projectWarmup := flag.Int("project-warmup", 3, "project-index build warmup iterations")
 	wggoIterations := flag.Int("wggo-iterations", 30, "measured WGGo render iterations")
 	wggoWarmup := flag.Int("wggo-warmup", 3, "WGGo warmup iterations")
 	flag.Parse()
 
-	if *nodes < 2 || *iterations < 1 || *warmup < 0 || *wggoIterations < 1 || *wggoWarmup < 0 {
-		fmt.Fprintln(os.Stderr, "nodes>=2, iterations>=1, wggo-iterations>=1 and warmups>=0 are required")
+	if *nodes < 2 || *iterations < 1 || *warmup < 0 || *projectComponents < 1 || *projectIterations < 1 || *projectWarmup < 0 || *wggoIterations < 1 || *wggoWarmup < 0 {
+		fmt.Fprintln(os.Stderr, "nodes>=2, project-components>=1, iterations>=1 and warmups>=0 are required")
 		os.Exit(2)
 	}
 
+	projectFiles := projectFixture(*projectComponents)
 	benchmarks := []result{
 		benchmarkLeaf(*nodes, *iterations, *warmup),
 		benchmarkFanout(*nodes, *iterations, *warmup),
+		benchmarkProjectIndexBuild(projectFiles, *projectIterations, *projectWarmup),
+		benchmarkProjectTokenChange(projectFiles, *iterations, *warmup),
 		benchmarkWGGoStatic(*wggoIterations, *wggoWarmup),
 	}
 
@@ -88,6 +95,61 @@ func benchmarkFanout(nodes, iterations, warmup int) result {
 		_, err := resolver.ApplyChanges(ctx, impact.ChangeSet{NodeIDs: []string{"token:shared"}})
 		return err
 	})
+}
+
+func benchmarkProjectIndexBuild(files []impact.ProjectFile, iterations, warmup int) result {
+	return measure("project_index_build", len(files), iterations, warmup, func() error {
+		idx, err := impact.IndexProject(files)
+		if err != nil {
+			return err
+		}
+		if idx.Uncertain {
+			return fmt.Errorf("project benchmark unexpectedly uncertain: %v", idx.Reasons)
+		}
+		return nil
+	})
+}
+
+func benchmarkProjectTokenChange(files []impact.ProjectFile, iterations, warmup int) result {
+	idx, err := impact.IndexProject(files)
+	must(err)
+	if idx.Uncertain {
+		must(fmt.Errorf("project benchmark unexpectedly uncertain: %v", idx.Reasons))
+	}
+	resolver, err := impact.NewResolver(idx.Graph)
+	must(err)
+	changes := idx.ChangeSetForFiles("src/theme.css")
+	ctx := context.Background()
+	return measure("project_token_change", len(files), iterations, warmup, func() error {
+		got, err := resolver.ApplyChanges(ctx, changes)
+		if err != nil {
+			return err
+		}
+		if len(got.ComponentIDs) == 0 {
+			return fmt.Errorf("project token benchmark produced no affected components")
+		}
+		return nil
+	})
+}
+
+func projectFixture(components int) []impact.ProjectFile {
+	files := make([]impact.ProjectFile, 0, 2+components*2)
+	files = append(files, impact.ProjectFile{Path: "src/theme.css", Content: []byte(`:root{--brand:#3b82f6;}`)})
+
+	var app strings.Builder
+	app.WriteString(`import "./theme.css";\n`)
+	for i := 0; i < components; i++ {
+		name := fmt.Sprintf("C%04d", i)
+		base := "src/components/" + name
+		files = append(files,
+			impact.ProjectFile{Path: base + ".css", Content: []byte(`.root{color:var(--brand);display:flex;gap:8px;}`)},
+			impact.ProjectFile{Path: base + ".tsx", Content: []byte(fmt.Sprintf("import \"./%s.css\"; export function %s(){ return <div className=\"root\">%s</div>; }", name, name, name))},
+		)
+		app.WriteString(fmt.Sprintf("import { %s } from \"./components/%s\";\n", name, name))
+	}
+	app.WriteString("export function App(){ return null; }\n")
+	files = append(files, impact.ProjectFile{Path: "src/App.tsx", Content: []byte(app.String())})
+	return files
 }
 
 func benchmarkWGGoStatic(iterations, warmup int) result {
