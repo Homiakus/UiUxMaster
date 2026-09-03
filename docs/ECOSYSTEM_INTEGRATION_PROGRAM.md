@@ -1,99 +1,110 @@
 # UiUxMaster Ecosystem Integration Program
 
-This document is subordinate to `MASTER_PLAN.md`. It defines how UiUxMaster should integrate selected Homiakus libraries without turning the hot UI-validation path into a distributed framework stack.
+This document is subordinate to `MASTER_PLAN.md`. If any statement here conflicts with `MASTER_PLAN.md`, the master plan wins.
 
-## 0. Goal
+The purpose of this document is to define how UiUxMaster may integrate selected Homiakus libraries **without moving foreign product semantics into the hot UI-validation path**.
 
-Use existing libraries only where they provide a proven architectural capability:
+## 0. Capability map
 
-- **AutoTraceLab** → impact/dependency graph and incremental invalidation ideas/kernel;
-- **Axiom** → durable control plane for long-running design/verification workflows;
-- **SncSinCore** → evidence-backed long-term design memory and bounded retrieval;
-- **SkillState** → bounded typed working state and controlled evolution of design skills;
-- **DeepSearch** → optional external research/acquisition plane;
-- **IRIS patterns** → evidence/claim/artifact/provenance compatibility, not a runtime dependency;
-- **RepoArk/WebGate** → later operational integrations only after activation gates are met.
+Use existing libraries only where they provide a proven capability:
 
-The central rule is:
+- **Axiom** → control plane for selected long-running/explainable workflows;
+- **SncSinCore** → admitted evidence-backed long-term design knowledge and bounded retrieval;
+- **SkillState** → bounded typed working projection and controlled skill evolution;
+- **DeepSearch** → optional research/acquisition sidecar;
+- **AutoTraceLab** → optional reference/source of isolated domain-neutral graph primitives only after the native impact engine is complete and benchmarked;
+- **IRIS patterns** → small evidence/claim/artifact/provenance compatibility schema, not application import;
+- **RepoArk/WebGate** → later operational integrations after explicit activation gates.
+
+Core rule:
 
 ```text
-Fast data plane != control plane != memory plane != research plane.
+UiUxMaster native data plane
+!= Axiom control plane
+!= SncSinCore knowledge plane
+!= SkillState working-state/evolution plane
+!= DeepSearch research plane
 ```
 
-No library may own more than one of these planes unless an explicit ADR proves the need.
+No external project owns UiUxMaster frontend semantics.
 
 ---
 
-# 1. Dependency and ownership rules
+# 1. Ownership rules
 
-## 1.1 Hot-path rule
+## 1.1 Hot path
 
-The 20–100 ms target loop may depend only on in-process, bounded-cost components:
+The normal tens-of-milliseconds path is intentionally small:
 
 ```text
-change → impact graph → fidelity router → WGGo/CDP → deterministic verifier → evidence packet
+change
+→ UiUxMaster native impact engine
+→ fidelity router
+→ WGGo or resident Chromium/CDP
+→ deterministic verifier
+→ evidence packet
 ```
 
-Do **not** call Axiom durable activities, SncSinCore retrieval, SkillState evolution, DeepSearch, external MCP, or cloud services on every geometry/pixel check.
+Do not invoke Axiom durable activities, SncSinCore retrieval, SkillState evolution, DeepSearch, external MCP services or cloud models on every geometry/pixel operation.
 
 ## 1.2 Canonical ownership
 
-- UiUxMaster `internal/evidence` owns the runtime evidence wire/domain contract.
-- AutoTrace-derived graph owns impact relationships, not design truth.
-- Axiom owns workflow execution/history for selected long-running operations, not renderer state.
-- SncSinCore owns admitted long-term epistemic memory, not current operational state.
-- SkillState owns bounded LLM working projection, not durable workflow history or canonical facts.
-- DeepSearch owns acquisition/research, not canonical design rules.
-- MCP is a protocol adapter only.
+- `internal/design` owns UI/UX rules and product profiles.
+- `internal/evidence` owns normalized runtime evidence contracts.
+- `internal/impact` owns frontend source/component/token/runtime-region dependency semantics.
+- `internal/invalidation` owns the policy that turns `ImpactSet` into validation scope.
+- `internal/fidelity` owns renderer capability/fidelity routing.
+- Axiom owns selected workflow execution/history only.
+- SncSinCore owns admitted long-term epistemic memory only.
+- SkillState owns bounded model-visible working projection only.
+- DeepSearch owns external research/acquisition only.
+- MCP owns transport/tool/resource concerns only.
 
-## 1.3 No vendor leakage
-
-Domain packages must depend on local ports/interfaces. External libraries remain behind adapters:
+## 1.3 External types do not leak
 
 ```text
-internal/impact      ← AutoTrace adapter
-internal/control     ← Axiom adapter
-internal/knowledge   ← SncSinCore adapter
-internal/skillstate  ← SkillState adapter
-internal/research    ← DeepSearch adapter
+internal/impact       ← native UiUxMaster types
+internal/control      ← Axiom adapter
+internal/knowledge    ← SncSinCore adapter
+internal/skillruntime ← SkillState adapter
+internal/research     ← DeepSearch adapter
 ```
 
-## 1.4 Version pinning
+Optional AutoTraceLab reuse must remain behind private graph helpers and may not define public `ImpactSet` semantics.
 
-All pre-v1 dependencies must be pinned to an explicit tag/commit and upgraded through a compatibility test matrix.
+## 1.4 Version/toolchain policy
 
-Axiom currently requires Go 1.26+, so UiUxMaster must upgrade and validate its toolchain before direct integration.
+- Pin pre-v1 external dependencies to explicit tag/commit when integrated.
+- Upgrade through compatibility tests.
+- Axiom currently requires Go 1.26+, therefore UiUxMaster upgrades/requalifies before direct Axiom integration.
+- Optional AutoTraceLab primitive reuse does **not** justify adding a dependency unless benchmark and maintenance gates are met.
 
 ---
 
-# 2. Integration A — AutoTraceLab impact graph (P0)
+# 2. Integration A — Native UiUxMaster Incremental Impact Engine (P0)
+
+This capability is deliberately **not an AutoTraceLab integration**.
 
 ## Objective
 
-Convert source changes into the smallest conservative validation scope.
+Convert a source/design/runtime change into the smallest conservative validation scope.
 
 ```text
 changed file/token
-→ module
-→ component
+→ module/style
+→ component/variant
 → component instance
+→ route/story/page
 → semantic DOM ref
 → render region
 → viewport/theme/scenario
 ```
 
-## Important boundary
-
-Do not import the AutoTraceLab React application. Its useful concepts are dependency DAGs, deterministic graph algorithms, incremental SceneEngine-style dirty propagation, geometry/indexing patterns and stable ordering.
-
-Before UiUxMaster depends on it, extract or expose a small domain-neutral Go graph package with a stable API.
-
-## Proposed upstream extraction
-
-Candidate package in AutoTraceLab:
+## Native package
 
 ```text
-pkg/impactgraph/
+internal/impact/
+    model.go
     graph.go
     builder.go
     reverse_index.go
@@ -101,29 +112,7 @@ pkg/impactgraph/
     dirty.go
     query.go
     snapshot.go
-```
-
-Required characteristics:
-
-- deterministic node/edge ordering;
-- forward and reverse adjacency;
-- SCC detection and condensation DAG for cycles;
-- bounded dirty propagation;
-- immutable/read-optimized snapshot plus cheap delta updates;
-- stable IDs;
-- serialization/version field;
-- no React/browser dependency;
-- benchmarks with 100/1k/10k/100k nodes.
-
-## UiUxMaster adapter
-
-```text
-internal/impact/
-    port.go
-    model.go
-    autotrace_adapter.go
-    ownership.go
-    runtime_refs.go
+    resolver.go
 ```
 
 Suggested port:
@@ -136,7 +125,7 @@ type Resolver interface {
 }
 ```
 
-## Graph node kinds
+## Node kinds
 
 At minimum:
 
@@ -147,7 +136,9 @@ At minimum:
 - Component
 - ComponentVariant
 - ComponentInstance
-- Route/Page
+- Route
+- Story
+- Page
 - SemanticElementRef
 - RenderRegion
 - ViewportProfile
@@ -155,6 +146,8 @@ At minimum:
 - Scenario
 
 ## Edge kinds
+
+At minimum:
 
 - imports
 - styles
@@ -171,89 +164,133 @@ At minimum:
 Start with deterministic analyzers:
 
 1. changed file paths from agent/git patch;
-2. import graph from JS/TS/Go templates where applicable;
+2. JS/TS/template imports/re-exports;
 3. CSS module/style imports;
-4. CSS custom-property definitions and references;
+4. CSS custom-property definitions/references;
 5. explicit component/test/design IDs;
 6. route/story registry;
-7. runtime DOM annotations discovered by FastBrowser.
-
-Do not require a perfect whole-program frontend compiler before useful invalidation works.
+7. runtime semantic refs discovered through L1/L2;
+8. framework-specific adapters only when measured value justifies them.
 
 ## Invalidation policy
 
-- local component style → affected instances only;
-- shared component → all known instances on representative pages;
+- local component style → affected instances;
+- shared component → known instances/representative pages;
 - local design token → consumers;
-- global typography/reset/theme token → broad representative-page invalidation;
-- unknown ownership → conservative page/site expansion;
-- cycle/SCC → invalidate the SCC as one unit.
+- global typography/reset/theme token → broad representative-page set;
+- SCC/cycle → invalidate SCC as one unit;
+- dynamic/unknown ownership → conservative expansion;
+- critical routes may force wider checks regardless of locality.
+
+## Graph implementation requirements
+
+- deterministic ordering;
+- forward/reverse adjacency;
+- SCC + condensation DAG;
+- bounded dirty propagation;
+- cheap incremental update;
+- stable IDs;
+- immutable/read-optimized snapshot for queries;
+- no browser/renderer/framework runtime dependency in the kernel;
+- no generic graph framework beyond demonstrated need.
 
 ## Performance gates
 
-Targets to validate:
+Hypotheses to validate:
 
-- 1k-node local change impact p95 < 1 ms;
-- 10k-node local change p95 < 5 ms;
-- 100k-node bounded local change p95 < 20 ms;
-- zero full-graph traversal on a known local leaf change;
-- memory budget documented.
+- 1k-node local impact p95 <1 ms;
+- 10k-node local impact p95 <5 ms;
+- 100k-node bounded local impact p95 <20 ms;
+- no full traversal on a known leaf edit;
+- incremental/full recompute parity;
+- false-negative mutation suite passes.
 
 ## Tests
 
-- deterministic output independent of map iteration;
-- cycle/SCC fixtures;
-- token fanout;
+- deterministic map-order independence;
+- cycles/SCC;
+- import/re-export cycles;
+- CSS token fanout;
 - component fanout;
-- stale runtime-ref invalidation;
-- false-negative mutation suite;
-- conservative fallback tests;
-- incremental vs full recomputation parity.
+- route aliasing;
+- stale runtime refs;
+- dynamic import fallback;
+- conservative fallback;
+- incremental vs full recomputation;
+- mutation tests aimed specifically at missed impact.
 
 ## Exit gate
 
-A local CSS/component edit no longer causes whole-page/site validation unless graph uncertainty requires it.
+Local UI edits no longer force whole-site validation by default, and impact false negatives are covered by an explicit mutation/adversarial suite.
 
 ---
 
-# 3. Integration B — Axiom control plane (P0, after hot data-plane contracts)
+# 3. AutoTraceLab optional graph-primitive reuse gate (P3/reference only)
+
+AutoTraceLab is primarily a block/process diagram construction, tracing and simulation system. Its process DAG/scene/scheduler semantics are **not** UiUxMaster frontend dependency semantics.
+
+Therefore:
+
+- no `AutoTraceLab` runtime dependency in the first production UiUxMaster;
+- no `autotrace_adapter.go` as the primary impact implementation;
+- no import of React UI, process simulator, scheduler, scene model or block-domain types;
+- no assumption that AutoTraceLab already solves source→component→DOM-region impact analysis.
+
+Only after §2 is implemented and benchmarked may individual graph algorithms be inspected, such as:
+
+- deterministic SCC;
+- condensation DAG;
+- reverse-adjacency utilities;
+- incremental/dirty recomputation;
+- deterministic graph ordering/snapshot helpers.
+
+A primitive may be adopted only if:
+
+1. it is genuinely domain-neutral;
+2. it can be isolated cleanly;
+3. UiUxMaster public/domain types remain unchanged;
+4. correctness/mutation fixtures remain green;
+5. p50/p95/p99 + allocations are equal or better;
+6. maintenance complexity is lower than native code;
+7. license/provenance is compatible.
+
+Otherwise keep the native implementation.
+
+---
+
+# 4. Integration B — Axiom control plane (P0 after data-plane stabilization)
 
 ## Objective
 
-Use Axiom for **longer-lived, explainable workflows**, not for each renderer operation.
+Use Axiom for longer-lived, explainable workflow lifecycles, not for individual renderer operations.
 
-Axiom's declarative `model` frontend is preferred for new Go code; use typed activities for external effects.
+## Prerequisite
 
-## Toolchain prerequisite
-
-1. Upgrade UiUxMaster from Go 1.25 to Go 1.26+.
-2. Update CI matrix.
-3. Run `go test ./...`, `go test -race ./...`, `go vet ./...`.
-4. Pin an Axiom tag/commit.
-5. Add a compatibility smoke test before enabling workflows.
+1. Upgrade UiUxMaster to Go 1.26+.
+2. Re-run `go test ./...`.
+3. Add/run `go test -race ./...`.
+4. Run `go vet ./...`.
+5. Pin an Axiom version/commit.
+6. Add compatibility smoke tests.
 
 ## Workflow candidates
 
-Use Axiom for:
+- `DesignPolishRun`
+- `CandidateComparisonRun`
+- `TruthPathCalibrationRun`
+- `CrossBrowserReleaseRun`
+- `DesignEvalRun`
+- `SkillPromotionRun`
 
-- `DesignPolishRun`;
-- `CandidateComparisonRun`;
-- `TruthPathCalibrationRun`;
-- `CrossBrowserReleaseRun`;
-- `DesignEvalRun`;
-- `SkillPromotionRun`.
+Do not wrap:
 
-Do not use Axiom for:
-
-- `getBoundingClientRect`;
-- one `DOMSnapshot`;
 - one WGGo render;
+- one CDP snapshot;
 - one ROI screenshot;
-- one pixel diff.
+- one pixel diff;
+- one geometry check.
 
 ## DesignPolishRun state
-
-Suggested state:
 
 ```text
 run_id
@@ -269,7 +306,7 @@ budget
 status
 ```
 
-Suggested events:
+Events:
 
 ```text
 Start
@@ -288,32 +325,26 @@ Cancel
 
 ## Claims/invariants
 
-Examples:
-
-- cannot complete while blocking findings remain;
-- cannot declare TruthPath verified without corresponding evidence digest;
-- iteration <= configured budget;
-- candidate cannot win if a protected accessibility/correctness axis regresses;
-- external action IDs are idempotent;
-- a collector failure cannot transition to PASS.
+- no completion with blocking findings;
+- no TruthPath verification without matching evidence digest;
+- iteration/budget limits;
+- correctness/accessibility regression prevents aesthetic win;
+- collector failure != PASS;
+- external effects use stable idempotency IDs.
 
 ## Activities
 
-Use typed activities for:
+Typed activities may request:
 
-- request FastRender/FastBrowser evidence;
-- request TruthPath scenario;
-- run semantic critic;
-- apply/record a repair through host adapter;
-- persist evidence bundle;
-- query SncSinCore;
-- invoke SkillState projection/evolution candidate evaluation.
+- FastRender/FastBrowser evidence;
+- TruthPath scenario;
+- semantic critic;
+- host repair application;
+- evidence persistence;
+- SncSinCore query/admission;
+- SkillState projection/evolution evaluation.
 
-Activities expose **one attempt**; Axiom owns retry/timeout/idempotency policy where applicable.
-
-## Budget policy
-
-Represent explicit run budgets:
+## Budgets
 
 ```text
 max_iterations
@@ -324,43 +355,27 @@ max_candidates
 max_repair_attempts
 ```
 
-Routing should use remaining budget + uncertainty to choose escalation.
+## Storage
 
-## Storage strategy
-
-- in-memory mode for local ephemeral polish run initially;
-- Pebble/durable store only when crash-resume provides measured value;
-- avoid persistence in the tens-of-ms hot loop;
-- evidence blobs remain in evidence/artifact store, referenced by digest/URI.
-
-## Tests
-
-- transition table tests;
-- invariant/claim mutation tests;
-- cancellation;
-- retry/idempotency;
-- crash/replay reconstruction if durable mode enabled;
-- collector failure != pass;
-- budget exhaustion;
-- exact explain/history output for representative runs.
+Start in-memory. Add Pebble/durable execution only when crash-resume value is demonstrated. Large evidence stays outside workflow state by digest/URI.
 
 ## Exit gate
 
-A multi-step polish/eval run is reproducible, explainable and resumable where configured without increasing ordinary L0–L2 hot-path latency.
+Longer UI polish/eval workflows become reproducible/explainable without measurable L0–L2 hot-path regression.
 
 ---
 
-# 4. Integration C — SncSinCore epistemic design memory (P0/P1)
+# 5. Integration C — SncSinCore epistemic design memory (P0/P1)
 
 ## Objective
 
-Turn accumulated UI/UX runs into evidence-backed reusable knowledge rather than raw logs or vector chunks.
+Turn accumulated UI/UX evidence into admitted reusable knowledge rather than raw logs or unbounded vector chunks.
 
-Use SncSinCore first through its in-memory `epmemory` mode. Move to `memoryv2` only after corpus scale requires it.
+Start with embedded `epmemory`. Activate `memoryv2` only after measured scale pressure.
 
-## Memory ontology
+## Ontology
 
-Node types should include:
+Node types:
 
 - DesignFinding
 - DesignRule
@@ -387,32 +402,21 @@ Relationships:
 - counterexample_to
 - derived_from
 
-## Admission pipeline
-
-Do not ingest every run as truth.
+## Admission
 
 ```text
 runtime observation
 → evidence.Packet
 → candidate memory atoms
-→ admission validation
 → provenance/scope/time gates
-→ SncSinCore corpus
+→ admitted SncSinCore knowledge
 ```
 
-Required provenance:
+Required provenance includes run ID, evidence digest, renderer/fidelity, environment, rule/critic version, project/profile scope and outcome.
 
-- UiUxMaster run ID;
-- evidence digest;
-- renderer/fidelity source;
-- browser/environment where relevant;
-- rule/critic version;
-- accepted/rejected outcome;
-- originating project/profile scope.
+## Retrieval
 
-## Retrieval contract
-
-UiUxMaster should expose a narrow local port:
+Use a narrow local port:
 
 ```go
 type Memory interface {
@@ -421,30 +425,19 @@ type Memory interface {
 }
 ```
 
-Use explicit requirements/targets so retrieval answers questions such as:
-
-```text
-What validated repairs exist for weak hero typography hierarchy
-in dark SaaS landing pages, and what counterexamples exist?
-```
-
-rather than generic similarity search.
+Retrieve explicit requirements/targets rather than generic top-k similarity.
 
 ## Context budget
 
-Critic input should receive a minimal sufficient `ContextPack`, for example:
+Critic should receive only a minimal sufficient view, e.g.:
 
-- <= 5 validated similar cases;
-- <= 3 counterexamples/refutations;
+- <=5 validated similar cases;
+- <=3 counterexamples/refutations;
 - applicable invariants;
-- unresolved evidence conflicts;
-- provenance references.
+- unresolved conflicts;
+- provenance refs.
 
-Never dump the whole design corpus into the model.
-
-## Scope/security
-
-Namespaces:
+## Namespace firewall
 
 ```text
 knowledge/global-design
@@ -454,50 +447,34 @@ research/global
 skillmeta/<skill-id>
 ```
 
-Apply scope authorization before retrieval. Project-private screenshots/text must not leak into global design memory.
-
-## Conflict preservation
-
-If evidence disagrees, preserve competing evidence and confidence. Do not average disagreement into one universal rule.
-
-## Storage scale
-
-Stage 1: `epmemory` embedded snapshot.
-
-Stage 2 activation gate for `memoryv2`:
-
-- corpus exceeds agreed node/latency threshold;
-- memory pressure becomes measurable;
-- incremental ingestion requires segmented persistence.
+Project-private evidence never leaks into global design memory.
 
 ## Tests
 
-- deterministic artifact/query replay;
-- scope leakage tests;
+- deterministic query/artifact replay;
+- scope leakage;
 - temporal/provenance gates;
-- conflict retention;
-- query budget enforcement;
-- prompt-injection-resistant context packing;
-- retraction invalidates derived knowledge;
-- retrieval improves eval outcome vs no-memory baseline.
+- conflict preservation;
+- query budgets;
+- injection-resistant context packing;
+- retraction propagation;
+- memory-enabled vs memory-disabled held-out eval.
 
 ## Exit gate
 
-Historical runs measurably improve repair/critique success on held-out UI fixtures without leaking scope, exploding context, or promoting unsupported claims.
+Memory measurably improves critique/repair success without context explosion or scope leakage.
 
 ---
 
-# 5. Integration D — SkillState bounded working state and controlled skill evolution (P1)
+# 6. Integration D — SkillState bounded working state and controlled evolution (P1)
 
 ## Objective
 
-Prevent long polish trajectories from growing context linearly and create an evidence-gated path for improving design skills.
+Keep long polish trajectories bounded and enable evidence-gated evolution of design skills.
 
-SkillState is a projection, **not source of truth**. It must not become a second scheduler; Axiom/host owns workflow execution and retries.
+SkillState is a projection, not canonical truth and not a scheduler.
 
-## Working-state projection
-
-Define a UiUxMaster skill state such as:
+## Working projection
 
 ```text
 run_id
@@ -514,38 +491,28 @@ last_patch_digest
 oscillation_flags
 ```
 
-Keep large screenshots, DOM, history, traces and full findings outside state by digest/URI.
+Large artifacts/history remain outside by digest/URI.
 
-## Typed patch model
+## Typed patches/CAS
 
-Model output may propose only typed incremental changes to working state. Enforce expected revision + digest CAS.
-
-Rejected patch mutates nothing.
+Require expected revision + digest. Rejected/stale patch mutates nothing.
 
 ## MemoryPort
 
-Connect SkillState to SncSinCore through a narrow memory port:
-
 ```text
-bounded working state Σ
+immutable Spec P
++ bounded Σ
 + latest observation O
-+ verified MemoryView on demand
++ verified SncSinCore MemoryView on demand
 ```
 
-No implicit conversation-history replay.
+No implicit long-history replay.
 
-## Oscillation/repeated-failure memory
+## Oscillation
 
-Track compact hypothesis/result IDs:
+Track compact hypothesis/result IDs and detect repeated repair loops. Escalate to higher-level redesign instead of repeating the same local patch.
 
-```text
-repair A → broke B
-repair B → restored A
-```
-
-If a loop is detected, set an escalation flag requiring a higher-level design reconsideration rather than another local patch.
-
-## Controlled evolution pipeline
+## Controlled evolution
 
 ```text
 Observation
@@ -555,75 +522,39 @@ Observation
 → ShadowEval
 → NonRegressionGate
 → AuthorizedPromotion
-→ Rollback-capable ActiveVersion
+→ rollback-capable ActiveVersion
 ```
 
-Never self-modify security/privacy/authorization gates.
+Security/privacy/authorization gates are never self-modifying.
 
-## Candidate evidence requirements
-
-Before promotion require:
-
-- multiple unrelated UI fixtures;
-- positive effect on target rubric axes;
-- no unacceptable accessibility/correctness regression;
-- false-positive rate within threshold;
-- latency/token impact measured;
-- counterexamples included;
-- provenance retained;
-- rollback package validated.
-
-## Tests
-
-- state token/atom budget;
-- revision/digest CAS;
-- stale patch rejection;
-- crash-safe reconstruction from host state;
-- memory namespace firewall;
-- replay evaluator determinism;
-- shadow mode cannot mutate active skill;
-- promotion rollback;
-- mutation tests for all evolution gates.
+Promotion requires unrelated fixtures, target-axis uplift, correctness/accessibility non-regression, acceptable false positives, latency/token measurements, provenance, counterexamples and validated rollback.
 
 ## Exit gate
 
-Long polish runs maintain bounded model context, and new design heuristics can only become active after reproducible replay/shadow evidence.
+50+ step trajectories remain bounded and no candidate rule becomes active without reproducible evidence.
 
 ---
 
-# 6. Integration E — DeepSearch research plane (P2, optional install)
+# 7. Integration E — DeepSearch research plane (P2 optional)
 
 ## Objective
 
-Continuously refresh design/UX/standards knowledge without putting Python/browser research in the local render hot path.
+Refresh UI/UX/standards knowledge without putting Python/browser research in the local render hot path.
 
-DeepSearch already provides adaptive cost-tier acquisition and MCP/REST interfaces. Treat it as an optional sidecar/provider.
+DeepSearch remains an optional sidecar/provider.
 
 ## Trigger conditions
 
-Invoke only for explicit or policy-triggered research needs:
-
 - new product/domain profile;
-- current WCAG/browser/design-system requirement;
+- current WCAG/browser/standard question;
 - unfamiliar design pattern;
-- periodic standards/research refresh;
+- periodic knowledge refresh;
 - benchmark/source verification;
-- user asks for evidence/references.
+- explicit evidence request.
 
-Do not invoke on every UI edit.
+Do not invoke on every edit.
 
 ## Adapter
-
-```text
-internal/research/
-    port.go
-    deepsearch_client.go
-    admission.go
-```
-
-Provider can use local REST or stdio sidecar; default UiUxMaster installation must remain usable without Python/DeepSearch.
-
-Suggested contract:
 
 ```go
 type Researcher interface {
@@ -632,45 +563,30 @@ type Researcher interface {
 }
 ```
 
-## Admission path
+REST or stdio sidecar may implement it. Base UiUxMaster must work without DeepSearch installed.
+
+## Admission
 
 ```text
-DeepSearch research bundle
+DeepSearch bundle
 → source/provenance validation
 → claim extraction
-→ candidate knowledge
-→ SncSinCore admission gates
-→ validated design knowledge
+→ memory candidates
+→ SncSinCore gates
+→ validated knowledge
 ```
 
-DeepSearch output is evidence input, not automatically a design rule.
+Research output never mutates active design rules directly.
 
-## Caching/budgets
-
-- content-addressable cache by query + source version where possible;
-- explicit latency/page/token budget;
-- reuse recent research artifact before crawling again;
-- store admitted knowledge in SncSinCore, not duplicate research blobs in prompt state.
-
-## Tests
-
-- sidecar unavailable → UiUxMaster still works;
-- timeout/cancellation;
-- duplicate source dedup;
-- stale source handling;
-- malicious/prompt-injected web content remains untrusted data;
-- source citation/provenance survives admission;
-- research update cannot mutate active skill directly.
-
-## Exit gate
-
-Research can refresh knowledge asynchronously/explicitly with provenance, while local edit/render validation remains independent of DeepSearch availability.
+Use cache/staleness policies, explicit budgets, cancellation and prompt-injection-safe handling.
 
 ---
 
-# 7. IRIS-compatible evidence/provenance patterns (P2, no direct dependency initially)
+# 8. IRIS compatibility patterns (P2)
 
-Adopt/align contracts for:
+Do not import IRIS Studio as an application dependency.
+
+If multiple projects need compatibility, define a small stable schema around:
 
 ```text
 Claim
@@ -681,249 +597,186 @@ Confidence
 Scope
 ```
 
-Do not import the full IRIS Studio application into UiUxMaster.
-
-Prefer a small compatibility package or schema mapping if cross-project exchange becomes necessary.
-
-Every significant design conclusion should be traceable:
-
-```text
-claim: CTA overlaps navigation
-→ geometry evidence
-→ screenshot crop
-→ renderer identity/fidelity
-→ verifier version
-→ run
-```
-
-Activation gate for a shared package: at least two projects need the same stable contract and schema divergence is already causing measurable maintenance cost.
+Activation gate: demonstrated cross-project duplication/interop need.
 
 ---
 
-# 8. RepoArk and WebGate activation gates (P3)
+# 9. RepoArk and WebGate activation gates (P3)
 
 ## RepoArk
 
-Do not add to runtime. Consider only for:
-
-- benchmark artifact archival;
-- release backup/mirroring;
-- reproducibility snapshots.
-
-Activation gate: UiUxMaster has release artifacts/benchmark history whose loss/reproducibility is an operational problem.
+No runtime dependency. Consider for benchmark/release artifact archival, mirroring and reproducibility only when history management becomes an operational issue.
 
 ## WebGate
 
-Do not add to local-first runtime now. Consider when UiUxMaster gains remote browser/device workers.
+No local-runtime dependency. Consider only when remote browser/device workers are a committed requirement.
 
-Potential future topology:
+Future remote workers must use authenticated transport, authorization, bounded retries, idempotency and provenance.
+
+---
+
+# 10. Integration order
 
 ```text
-UiUxMaster control plane
-→ authenticated remote worker transport
-→ Windows Chrome / Linux Chromium / macOS Safari / Android workers
+E0 Compatibility/toolchain baseline
+ ↓
+E1 Native UiUxMaster Impact Engine
+ ↓
+E2 Ultra-fast WGGo/CDP data plane stabilization
+ ↓
+E3 Axiom control plane
+ ↓
+E4 SncSinCore memory
+ ↓
+E5 SkillState bounded state
+ ↓
+E6 Controlled evolution + optional DeepSearch
+ ↓
+E7 Hardening / optional ecosystem reuse
 ```
 
-Activation gate:
-
-- remote workers are a committed product requirement;
-- local runner is insufficient;
-- transport resilience is benchmarked as a real need.
-
-The remote transport must preserve authorization, mTLS/authentication, bounded retries, idempotency and evidence provenance.
+AutoTraceLab is not a stage in the critical path. Its graph primitives may be reviewed only inside E7 or after the E1 native benchmark baseline is complete.
 
 ---
 
-# 9. Integrated target architecture
+# 11. Cross-integration contract
+
+A single polish run should conceptually flow as:
 
 ```text
-                         MCP Host / Coding Agent
-                                  │
-                                  ▼
-                          UiUxMaster MCP
-                                  │
-                                  ▼
-                     ┌──── Axiom Control Plane ────┐
-                     │                              │
-                     ▼                              ▼
-            Validation Router                 SkillState Σ
-                     │                              │
-          ┌──────────┼───────────┐                  │
-          ▼          ▼           ▼                  │
-       L1 WGGo    L2 FastCDP   L3 TruthPath         │
-          │          │           │                  │
-          └──────────┼───────────┘                  │
-                     ▼                              │
-              Evidence Packet                      │
-                     │                              │
-       ┌─────────────┼──────────────┐               │
-       ▼             ▼              ▼               │
- AutoTrace impact  deterministic  local VLM        │
- graph/scope        verifiers      critic           │
-       │             │              │               │
-       └─────────────┴──────┬───────┘               │
-                            ▼                       │
-                       repair decision ─────────────┘
-                            │
-                            ▼
-                         Axiom
-                            │
-                     evidence/admission
-                            ▼
-                       SncSinCore
-                            ▲
-                            │
-                      DeepSearch (optional)
-                            │
-                      research evidence
+agent/source patch
+   ↓
+UiUxMaster Impact Engine
+   ↓ ImpactSet
+validation router
+   ↓
+WGGo / resident Chromium / TruthPath
+   ↓ EvidencePacket
+Deterministic verifiers
+   ↓
+SkillState bounded projection ← optional SncSinCore MemoryView
+   ↓
+semantic critic / repair decision
+   ↓
+Axiom/host workflow when multi-step control is required
+   ↓
+repair + revalidate
+   ↓
+accepted evidence
+   ↓
+SncSinCore admission candidates
+   ↓
+SkillState replay/shadow evolution candidates
 ```
 
-Important: AutoTrace impact resolution belongs before expensive evidence collection. SncSinCore retrieval belongs before semantic critique only when historical knowledge is useful. Neither is required for a deterministic local geometry check.
+DeepSearch can feed source-backed knowledge into SncSinCore admission, never directly into active rules.
 
 ---
 
-# 10. Ordered implementation sequence
+# 12. Shared tests
 
-## E0 — Compatibility baseline
+Every integration phase adds cross-system tests for:
 
-1. Pin current UiUxMaster benchmark/CI baseline.
-2. Upgrade Go toolchain to 1.26+ to unlock Axiom integration.
-3. Add `go test -race ./...` CI job.
-4. Add dependency/license inventory.
-5. Record exact versions/commits for Axiom, SncSinCore, SkillState and any extracted AutoTrace module.
-6. Add ADR: ecosystem ownership boundaries.
+- cancellation propagation;
+- deadline/budget propagation;
+- context shutdown/no goroutine leaks;
+- bounded payloads;
+- deterministic ordering;
+- stale reference/digest handling;
+- evidence provenance preservation;
+- local/privacy namespace isolation;
+- dependency-disabled fallback behavior;
+- no L0–L2 latency regression beyond explicit budget.
 
-## E1 — AutoTrace impact graph
+Also run:
 
-1. Define UiUxMaster `ImpactGraph` port and fixtures first.
-2. Extract/stabilize a domain-neutral AutoTrace Go graph package or implement a compatible adapter around an existing stable kernel.
-3. Build source/import/CSS-token analyzers.
-4. Build reverse indexes and SCC/dirty propagation.
-5. Bind runtime semantic refs from CDP/WGGo evidence.
-6. Feed `ImpactSet` into validation router.
-7. Benchmark local vs broad changes.
-8. Add false-negative mutation suite.
+```text
+go test ./...
+go test -race ./...
+go vet ./...
+```
 
-## E2 — Axiom control plane
-
-1. Define `DesignPolishRun` state/events/claims.
-2. Implement typed activities around existing UiUxMaster ports.
-3. Keep data-plane operations direct/in-process.
-4. Add budgets/cancellation/idempotency.
-5. Run representative workflows in-memory.
-6. Add durable Pebble only after a crash-resume use case is proven.
-7. Expose workflow explain/history through internal diagnostics, not huge MCP output.
-
-## E3 — SncSinCore memory
-
-1. Define design-memory ontology and namespaces.
-2. Add evidence→candidate admission mapper.
-3. Start embedded `epmemory` corpus.
-4. Query minimal ContextPacks under explicit budgets.
-5. Feed memory only to semantic critic/repair planning where useful.
-6. Add conflict/scope/retraction tests.
-7. Compare eval performance with memory on/off.
-8. Activate `memoryv2` only at measured scale threshold.
-
-## E4 — SkillState bounded state
-
-1. Define typed `UiUxSkillState` and patch schema.
-2. Project Axiom/domain state into bounded Σ.
-3. Store large artifacts by digest/reference only.
-4. Connect SncSinCore `MemoryPort`.
-5. Add stale/CAS/oscillation protections.
-6. Replace implicit long conversation replay in polish agent context.
-7. Benchmark token reduction and task success.
-
-## E5 — Controlled evolution
-
-1. Collect candidate heuristics from repeated evidence-backed patterns.
-2. Keep candidate skill versions immutable.
-3. Build replay corpus from adversarial and real fixtures.
-4. Run current-vs-candidate A/B/shadow evals.
-5. Gate on design improvement + non-regression + latency/token cost.
-6. Require authorized promotion.
-7. Validate rollback before activation.
-
-## E6 — DeepSearch research adapter
-
-1. Keep optional feature flag/sidecar.
-2. Implement bounded `Researcher` port.
-3. Add source/provenance admission.
-4. Feed accepted claims into SncSinCore, not directly into active skill.
-5. Add cache/staleness policy.
-6. Add periodic/manual research refresh workflow through Axiom only if useful.
-
-## E7 — Ecosystem hardening
-
-1. Full race tests.
-2. Fault injection across Axiom activities, memory, renderer and research adapters.
-3. Benchmarks proving no regression in L0–L2 latency.
-4. Dependency upgrade compatibility suite.
-5. Privacy/scope isolation tests.
-6. License/provenance report.
-7. End-to-end eval comparing bare UiUxMaster vs integrated system.
+where supported by the active toolchain.
 
 ---
 
-# 11. Success metrics
+# 13. Success criteria
 
-The integrations are justified only if they improve measurable outcomes.
+## Impact engine
 
-## Impact graph
-
-- percent of edits validated without whole-page/site scan;
-- invalidation p95;
+- % local edits avoiding whole-page validation;
+- p50/p95/p99 impact latency;
 - false-negative scope rate;
-- average affected region count.
+- incremental/full parity;
+- allocations/update.
 
 ## Axiom
 
-- workflow recovery/replay success;
-- duplicate side-effect rate = 0;
-- explainability/history completeness;
-- no measurable hot-path latency regression.
+- replay/recovery success;
+- duplicate effects = 0;
+- explain/history completeness;
+- no hot-path latency regression.
 
 ## SncSinCore
 
-- repair success uplift on held-out fixtures;
-- context tokens saved vs naive history/retrieval;
+- held-out repair-success uplift;
+- context token reduction;
 - scope leakage = 0;
-- conflict-preservation tests pass.
+- conflict/retraction correctness.
 
 ## SkillState
 
-- bounded prompt state across 50+ iteration trajectories;
-- stale patch rejection rate/behavior correct;
-- oscillation detection precision;
-- candidate promotion regression rate.
+- bounded state across long runs;
+- stale-patch rejection;
+- oscillation detection;
+- promotion non-regression.
 
 ## DeepSearch
 
 - research freshness/coverage;
-- admitted-source provenance completeness;
-- no dependency of ordinary local validation on research service availability.
+- provenance completeness;
+- local UI validation remains available with sidecar disabled.
 
 ## Whole system
 
-- UI polish success rate;
+- time from source patch to actionable evidence;
+- solved design defects/session;
+- VLM calls/solved defect;
+- TruthPath escalations/edit;
 - regression escape rate;
-- p50/p95/p99 validation latency by tier;
-- VLM calls per successful repair;
-- TruthPath escalations per edit;
-- tokens/cost per solved design defect;
-- user/independent critic preference vs baseline.
+- human/held-out preference uplift.
 
 ---
 
-# 12. Non-goals / anti-overengineering guards
+# 14. Anti-overengineering rules
 
-- Do not create a second orchestration engine inside SkillState.
-- Do not run Axiom dispatch around every renderer/CDP primitive.
-- Do not turn SncSinCore into operational state storage.
-- Do not make DeepSearch mandatory for local operation.
-- Do not import the AutoTraceLab UI/React application into UiUxMaster.
-- Do not duplicate the same evidence/history in Axiom, SncSinCore and SkillState; each stores a different projection/reference.
-- Do not promote VLM opinions directly into canonical skills.
-- Do not introduce RepoArk/WebGate runtime dependencies before their activation gates.
-- Do not accept integration complexity without before/after benchmark and eval evidence.
+1. Do not use Axiom around individual renderer primitives.
+2. Do not make SkillState a scheduler.
+3. Do not store operational truth in SncSinCore.
+4. Do not invoke DeepSearch in the local hot loop.
+5. Do not import AutoTraceLab application/process semantics into UiUxMaster.
+6. Do not make AutoTraceLab a mandatory dependency of the impact engine.
+7. Do not build a generic graph framework unless frontend impact requirements prove the need.
+8. Do not duplicate full evidence/history across planes; use digests/references.
+9. Do not allow VLM output to become a canonical rule without replay/shadow gates.
+10. Do not activate RepoArk/WebGate before their product need exists.
+11. Do not retain an integration that fails its before/after benchmark or eval.
+
+---
+
+# 15. Immediate integration execution order
+
+1. Upgrade/requalify Go 1.26+ and race CI.
+2. Freeze latency/correctness baseline.
+3. Define native `internal/impact` contracts and fixtures.
+4. Implement native graph kernel + frontend analyzers.
+5. Build impact mutation/false-negative suite.
+6. Benchmark native impact engine.
+7. Stabilize WGGo/CDP data plane.
+8. Integrate Axiom control plane.
+9. Integrate SncSinCore admission/retrieval.
+10. Integrate SkillState bounded projection.
+11. Add controlled skill evolution.
+12. Add DeepSearch as optional research provider.
+13. Only then inspect isolated AutoTraceLab graph primitives if a measured native gap remains.
+14. Run bare-vs-integrated held-out benchmark and remove any integration that does not justify itself.
