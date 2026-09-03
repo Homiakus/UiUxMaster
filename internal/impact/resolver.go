@@ -41,7 +41,7 @@ func (r *Resolver) ApplyChanges(ctx context.Context, changes ChangeSet) (ImpactS
 			unknown = append(unknown, id)
 		}
 	}
-	return r.resolve(ctx, known, unknown)
+	return r.resolve(ctx, known, unknown, changes.Uncertain, changes.Reasons)
 }
 
 func (r *Resolver) ResolveComponent(ctx context.Context, componentID string) (ImpactSet, error) {
@@ -58,15 +58,15 @@ func (r *Resolver) resolveTyped(ctx context.Context, id string, expected NodeKin
 	}
 	n, ok := r.graph.Node(id)
 	if !ok {
-		return r.resolve(ctx, nil, []string{id})
+		return r.resolve(ctx, nil, []string{id}, false, nil)
 	}
 	if n.Kind != expected {
 		return ImpactSet{}, fmt.Errorf("impact: node %q has kind %q, want %q", id, n.Kind, expected)
 	}
-	return r.resolve(ctx, []string{id}, nil)
+	return r.resolve(ctx, []string{id}, nil, false, nil)
 }
 
-func (r *Resolver) resolve(ctx context.Context, known, unknown []string) (ImpactSet, error) {
+func (r *Resolver) resolve(ctx context.Context, known, unknown []string, uncertain bool, reasons []string) (ImpactSet, error) {
 	if err := ctx.Err(); err != nil {
 		return ImpactSet{}, err
 	}
@@ -77,7 +77,8 @@ func (r *Resolver) resolve(ctx context.Context, known, unknown []string) (Impact
 	out := ImpactSet{
 		NodeIDs:    make([]string, 0, len(nodes)),
 		UnknownIDs: append([]string(nil), unknown...),
-		Broad:      len(unknown) > 0,
+		Reasons:    uniqueSortedStrings(reasons),
+		Broad:      len(unknown) > 0 || uncertain,
 	}
 
 	for _, n := range nodes {
@@ -96,4 +97,20 @@ func (r *Resolver) resolve(ctx context.Context, known, unknown []string) (Impact
 	sort.Strings(out.RouteIDs)
 	sort.Strings(out.RegionIDs)
 	return out, nil
+}
+
+func uniqueSortedStrings(values []string) []string {
+	set := make(map[string]struct{}, len(values))
+	for _, value := range values {
+		if value == "" {
+			continue
+		}
+		set[value] = struct{}{}
+	}
+	out := make([]string, 0, len(set))
+	for value := range set {
+		out = append(out, value)
+	}
+	sort.Strings(out)
+	return out
 }
