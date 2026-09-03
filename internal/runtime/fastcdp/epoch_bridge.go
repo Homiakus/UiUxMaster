@@ -18,6 +18,7 @@ type EpochBridge struct {
 	Gate    *EpochGate
 
 	cancel func()
+	stop   chan struct{}
 	done   chan struct{}
 	once   sync.Once
 }
@@ -64,26 +65,37 @@ func (c *Connection) InstallEpochBridge(ctx context.Context, session SessionID, 
 		return nil, fmt.Errorf("fastcdp: activate epoch bridge: %w", err)
 	}
 
-	bridge := &EpochBridge{Session: session, Gate: gate, cancel: unsubscribe, done: make(chan struct{})}
+	bridge := &EpochBridge{
+		Session: session,
+		Gate:    gate,
+		cancel:  unsubscribe,
+		stop:    make(chan struct{}),
+		done:    make(chan struct{}),
+	}
 	go bridge.consume(events)
 	return bridge, nil
 }
 
 func (b *EpochBridge) consume(events <-chan Event) {
 	defer close(b.done)
-	for event := range events {
-		if SessionID(event.SessionID) != b.Session {
-			continue
+	for {
+		select {
+		case <-b.stop:
+			return
+		case event := <-events:
+			if SessionID(event.SessionID) != b.Session {
+				continue
+			}
+			var params bindingCalledParams
+			if err := json.Unmarshal(event.Params, &params); err != nil || params.Name != defaultEpochBinding {
+				continue
+			}
+			epoch, err := strconv.ParseUint(params.Payload, 10, 64)
+			if err != nil {
+				continue
+			}
+			b.Gate.Advance(epoch)
 		}
-		var params bindingCalledParams
-		if err := json.Unmarshal(event.Params, &params); err != nil || params.Name != defaultEpochBinding {
-			continue
-		}
-		epoch, err := strconv.ParseUint(params.Payload, 10, 64)
-		if err != nil {
-			continue
-		}
-		b.Gate.Advance(epoch)
 	}
 }
 
@@ -92,10 +104,8 @@ func (b *EpochBridge) Close() {
 		if b.cancel != nil {
 			b.cancel()
 		}
-		// Subscribe channels are intentionally not closed by Connection because a
-		// concurrent publish may hold a snapshot. The consumer is not awaited here;
-		// it becomes unreachable after unsubscribe and the connection lifetime owns
-		// the final event loop. This avoids a send-on-closed-channel race.
+		close(b.stop)
+		<-b.done
 	})
 }
 
