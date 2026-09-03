@@ -62,6 +62,6 @@ func getRubric(context.Context, *mcp.CallToolRequest, RubricInput) (*mcp.CallToo
 	}, nil
 }
 
-func evaluateEvidence(context.Context, *mcp.CallToolRequest, EvaluateEvidenceInput) (*mcp.CallToolResult, EvaluateEvidenceOutput, error) {
+func evaluateEvidence(_ context.Context, _ *mcp.CallToolRequest, input EvaluateEvidenceInput) (*mcp.CallToolResult, EvaluateEvidenceOutput, error) {
 	return nil, EvaluateEvidenceOutput{Report: engine.Evaluate(input.Packet)}, nil
 }
