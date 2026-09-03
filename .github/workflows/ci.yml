@@ -13,13 +13,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version: '1.26.x'
           cache: true
+          cache-dependency-path: go.sum
 
       - name: Verify module lock
         run: |
@@ -34,6 +35,17 @@ jobs:
 
       - name: Vet
         run: go vet ./...
+
+      - name: FastCDP Chromium integration
+        shell: bash
+        run: |
+          CHROME="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || command -v chrome-headless-shell || true)"
+          if [ -z "$CHROME" ]; then
+            echo "::error::No Chromium-family browser is installed on the runner"
+            exit 1
+          fi
+          UIUX_FASTCDP_INTEGRATION=1 UIUX_CHROME_BIN="$CHROME" \
+            go test ./internal/runtime/fastcdp -run '^TestResidentRuntimeIntegration$' -count=1 -v
 
       - name: Benchmark smoke
         run: go run ./cmd/uiuxbench -nodes 100 -iterations 50 -warmup 10 -project-components 30 -project-iterations 3 -project-warmup 1 -wggo-iterations 3 -wggo-warmup 1 | tee /tmp/uiuxbench.json
