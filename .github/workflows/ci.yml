@@ -32,3 +32,6 @@ jobs:
 
       - name: Vet
         run: go vet ./...
+
+      - name: Benchmark smoke
+        run: go run ./cmd/uiuxbench -nodes 100 -iterations 50 -warmup 10 > /tmp/uiuxbench.json
