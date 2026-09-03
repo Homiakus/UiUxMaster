@@ -98,6 +98,29 @@ func TestResolverUnknownChangeFailsConservatively(t *testing.T) {
 	}
 }
 
+func TestResolverUncertainAnalysisFailsConservatively(t *testing.T) {
+	g := NewGraph()
+	mustAddNode(t, g, Node{ID: "module:app", Kind: NodeModule})
+	resolver, err := NewResolver(g)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := resolver.ApplyChanges(context.Background(), ChangeSet{
+		NodeIDs:   []string{"module:app"},
+		Uncertain: true,
+		Reasons:   []string{"dynamic_import_unresolved", "dynamic_import_unresolved"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !got.Broad {
+		t.Fatal("uncertain analysis must expand scope")
+	}
+	if !reflect.DeepEqual(got.Reasons, []string{"dynamic_import_unresolved"}) {
+		t.Fatalf("reasons = %#v", got.Reasons)
+	}
+}
+
 func TestStronglyConnectedComponents(t *testing.T) {
 	g := NewGraph()
 	for _, id := range []string{"a", "b", "c"} {
