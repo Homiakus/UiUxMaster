@@ -28,8 +28,8 @@ type PagePool struct {
 	spec      PageSpec
 	max       int
 
-	inUse chan struct{}
-	idle  chan *WarmPage
+	inUse  chan struct{}
+	idle   chan *WarmPage
 	closed atomic.Bool
 
 	mu    sync.Mutex
@@ -115,6 +115,9 @@ func (p *PagePool) createWarmPage(ctx context.Context) (*WarmPage, error) {
 
 	if err := p.conn.EnablePageDomains(ctx, session.SessionID); err != nil {
 		return nil, err
+	}
+	if err := p.conn.SetViewport(ctx, session.SessionID, spec.Width, spec.Height, spec.DPR); err != nil {
+		return nil, fmt.Errorf("fastcdp: set page viewport: %w", err)
 	}
 	gate := NewEpochGate()
 	bridge, err := p.conn.InstallEpochBridge(ctx, session.SessionID, gate)
