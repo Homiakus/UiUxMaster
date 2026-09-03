@@ -19,14 +19,12 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.26.x'
-          cache: false
+          cache: true
 
-      - name: Resolve modules
+      - name: Verify module lock
         run: |
           go mod tidy
-          echo '--- UIUXMASTER_GO_SUM_BEGIN ---'
-          cat go.sum
-          echo '--- UIUXMASTER_GO_SUM_END ---'
+          git diff --exit-code -- go.mod go.sum
 
       - name: Test
         run: go test ./...
