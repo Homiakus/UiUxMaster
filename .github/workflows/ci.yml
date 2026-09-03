@@ -22,7 +22,11 @@ jobs:
           cache: false
 
       - name: Resolve modules
-        run: go mod tidy
+        run: |
+          go mod tidy
+          echo '--- UIUXMASTER_GO_SUM_BEGIN ---'
+          cat go.sum
+          echo '--- UIUXMASTER_GO_SUM_END ---'
 
       - name: Test
         run: go test ./...
