@@ -19,10 +19,10 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.25.x'
-          cache: true
+          cache: false
 
-      - name: Download modules
-        run: go mod download
+      - name: Resolve modules
+        run: go mod tidy
 
       - name: Test
         run: go test ./...
