@@ -13,6 +13,7 @@ type PageSpec struct {
 	URL     string
 	Width   int
 	Height  int
+	DPR     float64
 	Context BrowserContextID
 }
 
@@ -49,12 +50,6 @@ func (c *Connection) CreatePage(ctx context.Context, spec PageSpec) (PageSession
 	params := map[string]any{"url": spec.URL}
 	if spec.Context != "" {
 		params["browserContextId"] = string(spec.Context)
-	}
-	if spec.Width > 0 {
-		params["width"] = spec.Width
-	}
-	if spec.Height > 0 {
-		params["height"] = spec.Height
 	}
 	var created struct {
 		TargetID string `json:"targetId"`
@@ -110,4 +105,23 @@ func (c *Connection) EnablePageDomains(ctx context.Context, session SessionID) e
 		}
 	}
 	return nil
+}
+
+// SetViewport uses the Emulation domain after target attachment instead of the
+// Target.createTarget width/height parameters, whose support differs between
+// Chrome variants. This keeps viewport control stable across headless Chrome and
+// chrome-headless-shell.
+func (c *Connection) SetViewport(ctx context.Context, session SessionID, width, height int, dpr float64) error {
+	if width <= 0 || height <= 0 {
+		return nil
+	}
+	if dpr <= 0 {
+		dpr = 1
+	}
+	return c.Call(ctx, string(session), "Emulation.setDeviceMetricsOverride", map[string]any{
+		"width":             width,
+		"height":            height,
+		"deviceScaleFactor": dpr,
+		"mobile":            false,
+	}, nil)
 }
