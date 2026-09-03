@@ -2,7 +2,7 @@ package visualdiff
 
 import (
 	"image"
-	"color"
+	"image/color"
 	"testing"
 )
 
