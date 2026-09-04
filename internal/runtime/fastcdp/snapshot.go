@@ -152,6 +152,7 @@ func projectSnapshot(raw captureSnapshotResult, styleNames []string) (Snapshot, 
 					if i < len(styleIndexes) {
 						node.Styles[property] = stringAt(raw.Strings, styleIndexes[i])
 					}
+				}
 			}
 			projected.Nodes = append(projected.Nodes, node)
 		}
