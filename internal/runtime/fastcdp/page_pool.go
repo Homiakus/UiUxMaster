@@ -10,23 +10,40 @@ import (
 const defaultWarmPages = 2
 
 type PagePoolConfig struct {
-	MaxPages int
-	Page     PageSpec
+	MaxPages           int
+	Page               PageSpec
+	DiagnosticsCapacity int
+	DisableDiagnostics bool
 }
 
 type WarmPage struct {
-	Session PageSession
-	Epoch   *EpochGate
-	Bridge  *EpochBridge
+	Session     PageSession
+	Epoch       *EpochGate
+	Bridge      *EpochBridge
+	Diagnostics *DiagnosticsObserver
+}
+
+func (p *WarmPage) closeLocal() {
+	if p == nil {
+		return
+	}
+	if p.Bridge != nil {
+		p.Bridge.Close()
+	}
+	if p.Diagnostics != nil {
+		p.Diagnostics.Close()
+	}
 }
 
 // PagePool owns one isolated browser context and a bounded set of warm pages.
 // A page is created lazily, then reused without navigation while healthy.
 type PagePool struct {
-	conn      *Connection
-	contextID BrowserContextID
-	spec      PageSpec
-	max       int
+	conn                *Connection
+	contextID           BrowserContextID
+	spec                PageSpec
+	max                 int
+	diagnosticsCapacity int
+	disableDiagnostics  bool
 
 	inUse  chan struct{}
 	idle   chan *WarmPage
@@ -55,13 +72,15 @@ func NewPagePool(ctx context.Context, conn *Connection, config PagePoolConfig) (
 		return nil, fmt.Errorf("fastcdp: create page-pool context: %w", err)
 	}
 	return &PagePool{
-		conn:      conn,
-		contextID: contextID,
-		spec:      config.Page,
-		max:       maxPages,
-		inUse:     make(chan struct{}, maxPages),
-		idle:      make(chan *WarmPage, maxPages),
-		pages:     make(map[TargetID]*WarmPage),
+		conn:                conn,
+		contextID:           contextID,
+		spec:                config.Page,
+		max:                 maxPages,
+		diagnosticsCapacity: config.DiagnosticsCapacity,
+		disableDiagnostics:  config.DisableDiagnostics,
+		inUse:               make(chan struct{}, maxPages),
+		idle:                make(chan *WarmPage, maxPages),
+		pages:               make(map[TargetID]*WarmPage),
 	}, nil
 }
 
@@ -116,20 +135,39 @@ func (p *PagePool) createWarmPage(ctx context.Context) (*WarmPage, error) {
 	if err := p.conn.EnablePageDomains(ctx, session.SessionID); err != nil {
 		return nil, err
 	}
+
+	var diagnostics *DiagnosticsObserver
+	if !p.disableDiagnostics {
+		diagnostics, err = NewDiagnosticsObserver(p.conn, session.SessionID, p.diagnosticsCapacity)
+		if err != nil {
+			return nil, err
+		}
+		if err := p.conn.EnableDiagnosticDomains(ctx, session.SessionID); err != nil {
+			diagnostics.Close()
+			return nil, err
+		}
+	}
+
 	if err := p.conn.SetViewport(ctx, session.SessionID, spec.Width, spec.Height, spec.DPR); err != nil {
+		if diagnostics != nil {
+			diagnostics.Close()
+		}
 		return nil, fmt.Errorf("fastcdp: set page viewport: %w", err)
 	}
 	gate := NewEpochGate()
 	bridge, err := p.conn.InstallEpochBridge(ctx, session.SessionID, gate)
 	if err != nil {
+		if diagnostics != nil {
+			diagnostics.Close()
+		}
 		return nil, err
 	}
-	page := &WarmPage{Session: session, Epoch: gate, Bridge: bridge}
+	page := &WarmPage{Session: session, Epoch: gate, Bridge: bridge, Diagnostics: diagnostics}
 
 	p.mu.Lock()
 	if p.closed.Load() {
 		p.mu.Unlock()
-		bridge.Close()
+		page.closeLocal()
 		return nil, ErrClosed
 	}
 	p.pages[session.TargetID] = page
@@ -153,7 +191,7 @@ func (l *PageLease) Release() {
 	l.once.Do(func() {
 		p := l.pool
 		if p.closed.Load() {
-			l.page.Bridge.Close()
+			l.page.closeLocal()
 		} else {
 			p.idle <- l.page
 		}
@@ -170,7 +208,7 @@ func (l *PageLease) Discard(ctx context.Context) error {
 	var discardErr error
 	l.once.Do(func() {
 		p := l.pool
-		l.page.Bridge.Close()
+		l.page.closeLocal()
 		p.mu.Lock()
 		delete(p.pages, l.page.Session.TargetID)
 		p.mu.Unlock()
@@ -183,7 +221,7 @@ func (l *PageLease) Discard(ctx context.Context) error {
 }
 
 // Close disposes the pool browser context, which closes every page belonging to
-// it, including currently leased pages. Local epoch consumers are stopped first.
+// it, including currently leased pages. Local observers are stopped first.
 func (p *PagePool) Close(ctx context.Context) error {
 	if p == nil || !p.closed.CompareAndSwap(false, true) {
 		return nil
@@ -196,7 +234,7 @@ func (p *PagePool) Close(ctx context.Context) error {
 	p.pages = make(map[TargetID]*WarmPage)
 	p.mu.Unlock()
 	for _, page := range pages {
-		page.Bridge.Close()
+		page.closeLocal()
 	}
 	return p.conn.DisposeBrowserContext(ctx, p.contextID)
 }
