@@ -87,6 +87,31 @@ func TestAxiomFastCDPEndToEndIntegration(t *testing.T) {
 	if !broken.Validation.DiagnosticsComplete {
 		t.Fatalf("second diagnostic window is incomplete: %#v", broken.Validation)
 	}
+
+	mutateWarmPage(t, ctx, runtime, `
+		document.querySelector("button").style.background = "rgb(20, 90, 200)";
+		window.__UIUX_SIGNAL_RENDER__(3);
+	`)
+
+	visual, err := runner.StartAndRun(ctx, "chromium-visual", controlplane.Change{
+		Intent: "visual_region",
+		Region: &controlplane.Region{X: 0, Y: 0, Width: 160, Height: 100, Scale: 1},
+	}, controlplane.Budget{MaxBrowserFetches: 4})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if visual.Status != "completed" || visual.Decision != controlplane.DecisionSemantic {
+		t.Fatalf("visual run = %#v", visual)
+	}
+	if visual.Usage.BrowserFetches != 2 {
+		t.Fatalf("visual browser usage = %d, want 2", visual.Usage.BrowserFetches)
+	}
+	if !visual.Validation.PixelEvidence || visual.Validation.VisualRegions != 1 {
+		t.Fatalf("visual evidence projection = %#v", visual.Validation)
+	}
+	if !visual.Validation.DiagnosticsComplete {
+		t.Fatalf("visual diagnostic window is incomplete: %#v", visual.Validation)
+	}
 }
 
 func mutateWarmPage(t *testing.T, ctx context.Context, runtime *fastcdp.ResidentRuntime, expression string) {
