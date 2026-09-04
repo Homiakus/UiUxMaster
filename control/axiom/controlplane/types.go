@@ -8,13 +8,13 @@ import (
 // Change is the compact run-level intent handed to the durable control plane.
 // It deliberately avoids CDP/renderer implementation types.
 type Change struct {
-	Intent             string `json:"intent,omitempty"`
-	Risk               string `json:"risk,omitempty"`
-	CustomFontsChanged bool   `json:"custom_fonts_changed,omitempty"`
-	SemanticsChanged   bool   `json:"semantics_changed,omitempty"`
-	InteractionChanged bool   `json:"interaction_changed,omitempty"`
-	RuntimeChanged     bool   `json:"runtime_changed,omitempty"`
-	FinalGate          bool   `json:"final_gate,omitempty"`
+	Intent             string  `json:"intent,omitempty"`
+	Risk               string  `json:"risk,omitempty"`
+	CustomFontsChanged bool    `json:"custom_fonts_changed,omitempty"`
+	SemanticsChanged   bool    `json:"semantics_changed,omitempty"`
+	InteractionChanged bool    `json:"interaction_changed,omitempty"`
+	RuntimeChanged     bool    `json:"runtime_changed,omitempty"`
+	FinalGate          bool    `json:"final_gate,omitempty"`
 	Region             *Region `json:"region,omitempty"`
 }
 
@@ -41,12 +41,14 @@ type EvidencePlan struct {
 // DOM snapshots and VLM artifacts must remain in the execution plane and be
 // referenced separately when persistence is added.
 type ValidationResult struct {
-	BlockingFindings   int      `json:"blocking_findings"`
-	HighFindings       int      `json:"high_findings"`
-	MissingEvidence    []string `json:"missing_evidence,omitempty"`
-	VisualRegions      int      `json:"visual_regions,omitempty"`
-	DiagnosticsComplete bool    `json:"diagnostics_complete"`
-	Summary            string   `json:"summary,omitempty"`
+	BlockingFindings    int      `json:"blocking_findings"`
+	HighFindings        int      `json:"high_findings"`
+	MissingEvidence     []string `json:"missing_evidence,omitempty"`
+	VisualRegions       int      `json:"visual_regions,omitempty"`
+	VisualFindings      int      `json:"visual_findings,omitempty"`
+	PixelEvidence       bool     `json:"pixel_evidence,omitempty"`
+	DiagnosticsComplete bool     `json:"diagnostics_complete"`
+	Summary             string   `json:"summary,omitempty"`
 }
 
 type Decision string
@@ -96,16 +98,16 @@ type HistoryEntry struct {
 }
 
 type Run struct {
-	ID         string           `json:"id"`
-	Status     string           `json:"status"`
-	PlanID     string           `json:"plan_id"`
-	PlanVersion string          `json:"plan_version"`
-	PlanDigest string           `json:"plan_digest"`
-	Change     Change           `json:"change"`
-	Evidence   EvidencePlan     `json:"evidence"`
-	Validation ValidationResult `json:"validation"`
-	Decision   Decision         `json:"decision,omitempty"`
-	Usage      Usage            `json:"usage"`
-	Failure    string           `json:"failure,omitempty"`
-	History    []HistoryEntry   `json:"history,omitempty"`
+	ID          string           `json:"id"`
+	Status      string           `json:"status"`
+	PlanID      string           `json:"plan_id"`
+	PlanVersion string           `json:"plan_version"`
+	PlanDigest  string           `json:"plan_digest"`
+	Change      Change           `json:"change"`
+	Evidence    EvidencePlan     `json:"evidence"`
+	Validation  ValidationResult `json:"validation"`
+	Decision    Decision         `json:"decision,omitempty"`
+	Usage       Usage            `json:"usage"`
+	Failure     string           `json:"failure,omitempty"`
+	History     []HistoryEntry   `json:"history,omitempty"`
 }
