@@ -41,6 +41,7 @@ type ElementRef struct {
 	Selector      string            `json:"selector,omitempty"`
 	Bounds        Rect              `json:"bounds"`
 	Visible       bool              `json:"visible"`
+	Clickable     bool              `json:"clickable,omitempty"`
 	Styles        map[string]string `json:"styles,omitempty"`
 	Attributes    map[string]string `json:"attributes,omitempty"`
 	ParentID      string            `json:"parent_id,omitempty"`
