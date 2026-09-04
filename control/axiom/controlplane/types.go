@@ -9,30 +9,33 @@ import (
 // It exists in the control plane so Axiom can persist semantic validation intent
 // without depending on renderer/runtime implementation details.
 type ValidationNeed struct {
-	Geometry   bool `json:"geometry,omitempty"`
-	Styles     bool `json:"styles,omitempty"`
-	Pixels     bool `json:"pixels,omitempty"`
-	Scenario   bool `json:"scenario,omitempty"`
-	CleanState bool `json:"clean_state,omitempty"`
+	Geometry     bool `json:"geometry,omitempty"`
+	Styles       bool `json:"styles,omitempty"`
+	Pixels       bool `json:"pixels,omitempty"`
+	Scenario     bool `json:"scenario,omitempty"`
+	CleanState   bool `json:"clean_state,omitempty"`
+	CrossBrowser bool `json:"cross_browser,omitempty"`
+	Semantic     bool `json:"semantic,omitempty"`
 }
 
 // Change is the durable run-level input handed to the control plane.
 // Canonical scope inputs are carried losslessly so the execution adapter can
-// reconstruct the same engine.ValidationRequest that a direct caller would use.
-// Large source bodies/artifacts are intentionally excluded; persist them by
-// digest/reference and resolve them in the execution plane when needed.
+// reconstruct the same supported engine.ValidationRequest semantics that a
+// direct caller would use. Large source bodies/artifacts are intentionally
+// excluded; persist them by digest/reference and resolve them in the execution
+// plane when needed.
 type Change struct {
-	RunID          string   `json:"run_id,omitempty"`
-	ProjectID      string   `json:"project_id,omitempty"`
-	SourceDigest   string   `json:"source_digest,omitempty"`
-	ChangedFiles   []string `json:"changed_files,omitempty"`
-	ChangedTokens  []string `json:"changed_tokens,omitempty"`
-	ChangedNodes   []string `json:"changed_nodes,omitempty"`
-	TargetRoutes   []string `json:"target_routes,omitempty"`
-	Viewports      []string `json:"viewports,omitempty"`
-	Themes         []string `json:"themes,omitempty"`
-	ForceWholeSite bool     `json:"force_whole_site,omitempty"`
-	BaseURL        string   `json:"base_url,omitempty"`
+	RunID          string         `json:"run_id,omitempty"`
+	ProjectID      string         `json:"project_id,omitempty"`
+	SourceDigest   string         `json:"source_digest,omitempty"`
+	ChangedFiles   []string       `json:"changed_files,omitempty"`
+	ChangedTokens  []string       `json:"changed_tokens,omitempty"`
+	ChangedNodes   []string       `json:"changed_nodes,omitempty"`
+	TargetRoutes   []string       `json:"target_routes,omitempty"`
+	Viewports      []string       `json:"viewports,omitempty"`
+	Themes         []string       `json:"themes,omitempty"`
+	ForceWholeSite bool           `json:"force_whole_site,omitempty"`
+	BaseURL        string         `json:"base_url,omitempty"`
 	Need           ValidationNeed `json:"need,omitempty"`
 
 	Intent             string  `json:"intent,omitempty"`
