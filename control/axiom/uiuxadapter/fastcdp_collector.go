@@ -118,6 +118,12 @@ func (c *FastCDPCollector) Collect(ctx context.Context, change controlplane.Chan
 		FidelityID: c.config.FidelityID,
 		Region:     req.Region,
 	})
+	if req.Region != nil && packet.Pixels != nil {
+		packet.VisualRegions = append(packet.VisualRegions, evidence.VisualRegion{
+			ID:     "requested-roi",
+			Bounds: packet.Pixels.Bounds,
+		})
+	}
 
 	state.Epoch = collected.Epoch
 	state.Initialized = true
