@@ -3,6 +3,7 @@ package verifier
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/Homiakus/UiUxMaster/internal/evidence"
 )
@@ -15,6 +16,42 @@ const (
 	CodeFontSetLoading    = "font.fontset_loading"
 	CodeFontFaceError     = "font.face_error"
 )
+
+// VerifyDeterministic is the canonical deterministic verifier entry point. It
+// composes geometry/interaction checks with accessibility and font evidence
+// while preserving the older Verify API for geometry-only callers.
+func VerifyDeterministic(packet evidence.Packet, policy Policy) Result {
+	started := time.Now()
+	base := Verify(packet, policy)
+	issues := append([]evidence.RuntimeIssue(nil), base.Issues...)
+	issues = append(issues, verifyAccessibility(packet)...)
+	issues = append(issues, verifyFonts(packet.Fonts)...)
+	sortIssues(issues)
+	return Result{Issues: issues, Duration: time.Since(started)}
+}
+
+// ApplyDeterministic merges the full deterministic suite into Packet without
+// duplicating findings already emitted by async runtime diagnostics.
+func ApplyDeterministic(packet *evidence.Packet, policy Policy) Result {
+	if packet == nil {
+		return Result{}
+	}
+	result := VerifyDeterministic(*packet, policy)
+	seen := make(map[string]struct{}, len(packet.RuntimeIssues)+len(result.Issues))
+	for _, issue := range packet.RuntimeIssues {
+		seen[issueKey(issue)] = struct{}{}
+	}
+	for _, issue := range result.Issues {
+		key := issueKey(issue)
+		if _, exists := seen[key]; exists {
+			continue
+		}
+		seen[key] = struct{}{}
+		packet.RuntimeIssues = append(packet.RuntimeIssues, issue)
+	}
+	sortIssues(packet.RuntimeIssues)
+	return result
+}
 
 func verifyAccessibility(packet evidence.Packet) []evidence.RuntimeIssue {
 	if len(packet.Accessibility) == 0 || len(packet.Elements) == 0 {
