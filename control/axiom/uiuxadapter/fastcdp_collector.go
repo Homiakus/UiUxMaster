@@ -2,14 +2,18 @@ package uiuxadapter
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/Homiakus/UiUxMaster/control/axiom/controlplane"
 	"github.com/Homiakus/UiUxMaster/internal/evidence"
 	"github.com/Homiakus/UiUxMaster/internal/evidenceplan"
 	"github.com/Homiakus/UiUxMaster/internal/runtime/fastcdp"
 )
+
+const collectorDiscardTimeout = 2 * time.Second
 
 type FastCDPCollectorConfig struct {
 	Viewport        evidence.Viewport
@@ -20,10 +24,8 @@ type FastCDPCollectorConfig struct {
 }
 
 type fastCDPPageState struct {
-	Epoch          uint64
-	Diagnostics    fastcdp.DiagnosticMark
-	Initialized    bool
-	HasDiagnostics bool
+	Epoch       uint64
+	Diagnostics fastcdp.DiagnosticMark
 }
 
 // FastCDPCollector is the real L2 execution-plane implementation used by the
@@ -90,7 +92,6 @@ func (c *FastCDPCollector) Collect(ctx context.Context, change controlplane.Chan
 		// DiagnosticSnapshot.Through, so no event range is silently skipped.
 		mark := state.Diagnostics
 		diagnosticMark = &mark
-		state.HasDiagnostics = true
 	}
 
 	req := fastcdp.RequestFromPlan(plan, fastcdp.PlannedRequestOptions{
@@ -109,7 +110,17 @@ func (c *FastCDPCollector) Collect(ctx context.Context, change controlplane.Chan
 
 	collected, err := page.CollectEvidence(ctx, c.runtime.Conn, req)
 	if err != nil {
-		return evidence.Packet{}, fmt.Errorf("uiuxadapter: collect FastCDP evidence: %w", err)
+		wrapped := fmt.Errorf("uiuxadapter: collect FastCDP evidence: %w", err)
+		if shouldDiscardCollectorPage(err) {
+			c.dropPageState(page.Session.TargetID)
+			discardCtx, cancel := context.WithTimeout(context.Background(), collectorDiscardTimeout)
+			discardErr := lease.Discard(discardCtx)
+			cancel()
+			if discardErr != nil {
+				return evidence.Packet{}, errors.Join(wrapped, fmt.Errorf("uiuxadapter: discard failed warm page: %w", discardErr))
+			}
+		}
+		return evidence.Packet{}, wrapped
 	}
 	packet := fastcdp.ToPacket(collected, fastcdp.PacketOptions{
 		Scenario:   c.config.Scenario,
@@ -126,10 +137,8 @@ func (c *FastCDPCollector) Collect(ctx context.Context, change controlplane.Chan
 	}
 
 	state.Epoch = collected.Epoch
-	state.Initialized = true
 	if collected.Diagnostics != nil {
 		state.Diagnostics = collected.Diagnostics.Through
-		state.HasDiagnostics = true
 	}
 	c.setPageState(page.Session.TargetID, state)
 	return packet, nil
@@ -145,6 +154,22 @@ func (c *FastCDPCollector) setPageState(target fastcdp.TargetID, state fastCDPPa
 	c.mu.Lock()
 	c.pages[target] = state
 	c.mu.Unlock()
+}
+
+func (c *FastCDPCollector) dropPageState(target fastcdp.TargetID) {
+	c.mu.Lock()
+	delete(c.pages, target)
+	c.mu.Unlock()
+}
+
+func shouldDiscardCollectorPage(err error) bool {
+	if err == nil {
+		return false
+	}
+	return !errors.Is(err, context.Canceled) &&
+		!errors.Is(err, context.DeadlineExceeded) &&
+		!errors.Is(err, fastcdp.ErrEpochChanged) &&
+		!errors.Is(err, fastcdp.ErrClosed)
 }
 
 func captureRegion(region *controlplane.Region) (*fastcdp.CaptureRegionOptions, error) {
