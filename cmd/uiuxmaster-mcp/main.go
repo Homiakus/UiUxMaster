@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	server := mcpserver.New()
+	server := mcpserver.New(mcpserver.Config{})
 	if err := server.Run(context.Background(), &mcp.StdioTransport{}); err != nil {
 		log.Fatal(err)
 	}

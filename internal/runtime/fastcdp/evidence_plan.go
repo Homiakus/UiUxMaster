@@ -13,28 +13,38 @@ type PlannedRequestOptions struct {
 // Diagnostics are included only when a cycle mark is supplied; callers should
 // mark the warm page immediately before applying the change under validation.
 func RequestFromPlan(plan evidenceplan.Plan, options PlannedRequestOptions) EvidenceRequest {
-	req:=EvidenceRequest{RequireAfter:options.RequireAfter,WaitForNewEpoch:options.WaitForNewEpoch,MaxEpochRetries:options.MaxEpochRetries}
-	if plan.Structural { snapshot:=DefaultSnapshotOptions(); req.Snapshot=&snapshot }
-	if plan.Accessibility { req.Accessibility=true }
-	if plan.Fonts { req.Fonts=true }
-	if plan.Diagnostics { req.DiagnosticsSince=options.DiagnosticsSince }
-	if plan.Pixels {
-		// Region coordinates are intentionally carried by the plan so browser
-		// adapters never infer a full-page screenshot when only one ROI is needed.
-		// A missing region remains nil and is rejected by the caller/router rather
-		// than silently escalating to whole-page pixels.
-		//
-		// This branch is completed below only for a concrete planned region.
+	req := EvidenceRequest{RequireAfter: options.RequireAfter, WaitForNewEpoch: options.WaitForNewEpoch, MaxEpochRetries: options.MaxEpochRetries}
+	if plan.Structural {
+		snapshot := DefaultSnapshotOptions()
+		req.Snapshot = &snapshot
+	}
+	if plan.Accessibility {
+		req.Accessibility = true
+	}
+	if plan.Fonts {
+		req.Fonts = true
+	}
+	if plan.Diagnostics {
+		req.DiagnosticsSince = options.DiagnosticsSince
+	}
+	if plan.Pixels && plan.Region != nil {
+		scale := plan.Region.Scale
+		if scale == 0 {
+			scale = 1
+		}
+		req.Region = &CaptureRegionOptions{
+			X:                plan.Region.X,
+			Y:                plan.Region.Y,
+			Width:            plan.Region.Width,
+			Height:           plan.Region.Height,
+			Scale:            scale,
+			OptimizeForSpeed: true,
+		}
 	}
 	return req
 }
 
 func RequestFromSignals(signals evidenceplan.Signals, options PlannedRequestOptions) EvidenceRequest {
-	plan:=evidenceplan.Build(signals)
-	req:=RequestFromPlan(plan,options)
-	if plan.Pixels && signals.Region!=nil {
-		scale:=signals.Region.Scale;if scale==0{scale=1}
-		req.Region=&CaptureRegionOptions{X:signals.Region.X,Y:signals.Region.Y,Width:signals.Region.Width,Height:signals.Region.Height,Scale:scale,OptimizeForSpeed:true}
-	}
-	return req
+	plan := evidenceplan.Build(signals)
+	return RequestFromPlan(plan, options)
 }

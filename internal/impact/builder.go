@@ -100,6 +100,46 @@ func (b *Builder) StyleComponent(styleID, componentID string) error {
 	return b.graph.AddEdge(Edge{From: styleID, To: componentID, Kind: EdgeStyles})
 }
 
+// StyleImport records stylesheet -> importing stylesheet propagation (e.g. @import).
+// Changes to dependency propagate to importer (dependency -> importer).
+func (b *Builder) StyleImport(importerStyleID, dependencyStyleID string) error {
+	if importerStyleID == "" || dependencyStyleID == "" {
+		return fmt.Errorf("impact: importer and dependency are required")
+	}
+	if err := b.StyleSheet(importerStyleID); err != nil {
+		return err
+	}
+	if err := b.StyleSheet(dependencyStyleID); err != nil {
+		return err
+	}
+	return b.graph.AddEdge(Edge{From: dependencyStyleID, To: importerStyleID, Kind: EdgeStyles})
+}
+
+// Route records a page or route node.
+func (b *Builder) Route(id string) error {
+	return b.graph.AddNode(Node{ID: id, Kind: NodeRoute})
+}
+
+// RouteAlias records that aliasRouteID aliases targetRouteID (target -> alias).
+// Invalidation of targetRouteID invalidates the alias as well.
+func (b *Builder) RouteAlias(aliasRouteID, targetRouteID string) error {
+	if aliasRouteID == "" || targetRouteID == "" {
+		return fmt.Errorf("impact: alias and target routes are required")
+	}
+	kind := NodeRoute
+	if targetNode, ok := b.graph.Node(targetRouteID); ok {
+		kind = targetNode.Kind
+	} else {
+		if err := b.Route(targetRouteID); err != nil {
+			return err
+		}
+	}
+	if err := b.graph.AddNode(Node{ID: aliasRouteID, Kind: kind}); err != nil {
+		return err
+	}
+	return b.graph.AddEdge(Edge{From: targetRouteID, To: aliasRouteID, Kind: EdgeDependsOn})
+}
+
 func (b *Builder) DesignToken(id string) error {
 	return b.graph.AddNode(Node{ID: id, Kind: NodeDesignToken})
 }
@@ -134,17 +174,25 @@ func (b *Builder) ComponentInstance(componentID, instanceID string) error {
 }
 
 // PlaceInstance binds an instance to a page/route-like owner and concrete render region.
-func (b *Builder) PlaceInstance(instanceID, pageID, regionID string) error {
+func (b *Builder) PlaceInstance(instanceID, ownerID, regionID string) error {
 	if err := b.graph.AddNode(Node{ID: instanceID, Kind: NodeComponentInstance}); err != nil {
 		return err
 	}
-	if err := b.graph.AddNode(Node{ID: pageID, Kind: NodePage}); err != nil {
-		return err
+	if targetNode, ok := b.graph.Node(ownerID); ok {
+		switch targetNode.Kind {
+		case NodePage, NodeRoute, NodeStory:
+		default:
+			return fmt.Errorf("impact: invalid owner kind %q for instance placement", targetNode.Kind)
+		}
+	} else {
+		if err := b.graph.AddNode(Node{ID: ownerID, Kind: NodePage}); err != nil {
+			return err
+		}
 	}
 	if err := b.graph.AddNode(Node{ID: regionID, Kind: NodeRenderRegion}); err != nil {
 		return err
 	}
-	if err := b.graph.AddEdge(Edge{From: instanceID, To: pageID, Kind: EdgeAppearsOn}); err != nil {
+	if err := b.graph.AddEdge(Edge{From: instanceID, To: ownerID, Kind: EdgeAppearsOn}); err != nil {
 		return err
 	}
 	return b.graph.AddEdge(Edge{From: instanceID, To: regionID, Kind: EdgeAffectsRegion})

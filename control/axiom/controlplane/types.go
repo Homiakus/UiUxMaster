@@ -70,6 +70,75 @@ type Executor interface {
 	Decide(context.Context, Change, EvidencePlan, ValidationResult) (Decision, error)
 }
 
+// DesignPolishRequest encapsulates parameters for a multi-step design polish workflow.
+type DesignPolishRequest struct {
+	Intent        string   `json:"intent"`
+	Target        string   `json:"target,omitempty"`
+	MaxIterations int      `json:"max_iterations,omitempty"`
+	ProtectedAxes []string `json:"protected_axes,omitempty"`
+	Profile       string   `json:"profile,omitempty"`
+}
+
+// PolishIteration records the outcome of one repair and re-verification cycle.
+type PolishIteration struct {
+	Iteration      int      `json:"iteration"`
+	HypothesisID   string   `json:"hypothesis_id,omitempty"`
+	FindingsCount  int      `json:"findings_count"`
+	HardViolations int      `json:"hard_violations"`
+	Score          float64  `json:"score"`
+	Accepted       bool     `json:"accepted"`
+	Rationale      string   `json:"rationale"`
+}
+
+// DesignPolishResult records final quality, iteration history and convergence status.
+type DesignPolishResult struct {
+	InitialScore      float64           `json:"initial_score"`
+	FinalScore        float64           `json:"final_score"`
+	AcceptedCount     int               `json:"accepted_count"`
+	TotalIterations   int               `json:"total_iterations"`
+	Converged         bool              `json:"converged"`
+	RemainingFindings int               `json:"remaining_findings"`
+	Summary           string            `json:"summary"`
+	Iterations        []PolishIteration `json:"iterations,omitempty"`
+}
+
+// DesignPolishExecutor drives the execution steps of a DesignPolishRun.
+type DesignPolishExecutor interface {
+	InspectBaseline(context.Context, DesignPolishRequest) (PolishIteration, error)
+	StepPolish(context.Context, DesignPolishRequest, int) (PolishIteration, error)
+	ConcludePolish(context.Context, DesignPolishRequest, []PolishIteration) (DesignPolishResult, error)
+}
+
+// CandidateComparisonRequest encapsulates parameters for a candidate ranking workflow.
+type CandidateComparisonRequest struct {
+	BaselineID    string   `json:"baseline_id"`
+	CandidateIDs  []string `json:"candidate_ids"`
+	ProtectedAxes []string `json:"protected_axes,omitempty"`
+}
+
+// CandidateRank records an evaluated variant's position and constraints outcome.
+type CandidateRank struct {
+	CandidateID       string   `json:"candidate_id"`
+	Rank              int      `json:"rank"`
+	Score             float64  `json:"score"`
+	PassedConstraints bool     `json:"passed_constraints"`
+	RegressedAxes     []string `json:"regressed_axes,omitempty"`
+	Rationale         string   `json:"rationale"`
+}
+
+// ComparisonRunResult records the winner and ranked variants.
+type ComparisonRunResult struct {
+	WinnerID  string          `json:"winner_id"`
+	Rankings  []CandidateRank `json:"rankings"`
+	Summary   string          `json:"summary"`
+}
+
+// CandidateComparisonExecutor drives the execution steps of a CandidateComparisonRun.
+type CandidateComparisonExecutor interface {
+	EvaluateCandidates(context.Context, CandidateComparisonRequest) ([]CandidateRank, error)
+	ConcludeComparison(context.Context, CandidateComparisonRequest, []CandidateRank) (ComparisonRunResult, error)
+}
+
 type Budget struct {
 	MaxCost           float64       `json:"max_cost,omitempty"`
 	MaxTokens         int64         `json:"max_tokens,omitempty"`
@@ -110,4 +179,26 @@ type Run struct {
 	Usage       Usage            `json:"usage"`
 	Failure     string           `json:"failure,omitempty"`
 	History     []HistoryEntry   `json:"history,omitempty"`
+}
+
+type DesignPolishRun struct {
+	ID          string              `json:"id"`
+	Status      string              `json:"status"`
+	PlanID      string              `json:"plan_id"`
+	Request     DesignPolishRequest `json:"request"`
+	Result      DesignPolishResult  `json:"result"`
+	Usage       Usage               `json:"usage"`
+	Failure     string              `json:"failure,omitempty"`
+	History     []HistoryEntry      `json:"history,omitempty"`
+}
+
+type CandidateComparisonRun struct {
+	ID          string                     `json:"id"`
+	Status      string                     `json:"status"`
+	PlanID      string                     `json:"plan_id"`
+	Request     CandidateComparisonRequest `json:"request"`
+	Result      ComparisonRunResult        `json:"result"`
+	Usage       Usage                      `json:"usage"`
+	Failure     string                     `json:"failure,omitempty"`
+	History     []HistoryEntry             `json:"history,omitempty"`
 }

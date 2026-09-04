@@ -24,7 +24,7 @@ func VerifyDeterministic(packet evidence.Packet, policy Policy) Result {
 	started := time.Now()
 	base := Verify(packet, policy)
 	issues := append([]evidence.RuntimeIssue(nil), base.Issues...)
-	issues = append(issues, verifyAccessibility(packet)...)
+	issues = append(issues, VerifyAccessibility(packet)...)
 	issues = append(issues, verifyFonts(packet.Fonts)...)
 	sortIssues(issues)
 	return Result{Issues: issues, Duration: time.Since(started)}
@@ -53,7 +53,8 @@ func ApplyDeterministic(packet *evidence.Packet, policy Policy) Result {
 	return result
 }
 
-func verifyAccessibility(packet evidence.Packet) []evidence.RuntimeIssue {
+// VerifyAccessibility inspects accessibility node coverage and actionable name/role invariants.
+func VerifyAccessibility(packet evidence.Packet) []evidence.RuntimeIssue {
 	if len(packet.Accessibility) == 0 || len(packet.Elements) == 0 {
 		return nil
 	}

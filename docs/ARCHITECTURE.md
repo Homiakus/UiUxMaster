@@ -58,27 +58,30 @@ A domain function must be callable without MCP.
 ---
 
 ## 3. Evidence hierarchy
-
-Use the cheapest trustworthy evidence first.
+ 
+Use the cheapest trustworthy evidence first. The canonical tiers defined in `MASTER_PLAN.md` are authoritative:
 
 ```text
-L0 runtime
-   page errors, failed requests, missing fonts, readiness
+L0 — Static / source preflight
+   changed-file/module/token detection, dependency graph updates, validation-scope calculation
 
-L1 structure
-   ARIA snapshot, semantic roles, DOM geometry, computed styles
+L1 — WGGo FastRender
+   in-process Go renderer, direct RGBA rendering, in-memory ROI crop, calibrated capability envelope
 
-L2 deterministic visual
-   screenshot baseline, pixel/region diff, clipping/overlap
+L2 — FastBrowser
+   resident Chromium process, raw-CDP websocket transport, bounded warm page pool,
+   DOMSnapshot, accessibility tree, font-state, ROI screenshot, canonical evidence.Packet
 
-L3 semantic visual
-   local VLM critique of targeted crop + structural context
+L3 — TruthPath
+   Playwright against clean-state real Chromium/Firefox/WebKit, protected screenshot baselines,
+   interaction scenarios, cross-browser milestone/release verification, L1/L2 fidelity calibration
 
-L4 escalated semantic visual
-   stronger model / multi-candidate comparison only when uncertainty warrants it
+L4 — Semantic visual critique
+   local-first VLM / hierarchical critic for unresolved semantic design questions
+   (hierarchy, typography relationships, composition/crop, color balance)
 ```
 
-The engine should stop escalating when the current evidence is sufficient to make a high-confidence decision.
+The engine should stop escalating when the current evidence is sufficient to make a high-confidence decision. Unsupported geometry/styles/scenario requirements must escalate to higher tiers rather than fabricate evidence.
 
 ---
 

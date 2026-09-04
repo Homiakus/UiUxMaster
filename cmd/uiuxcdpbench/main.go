@@ -18,7 +18,15 @@ type metric struct{Scenario string `json:"scenario"`;Iterations int `json:"itera
 type report struct{Browser fastcdp.BrowserVersion `json:"browser"`;StartupUS float64 `json:"startup_us"`;AcquireUS float64 `json:"first_page_acquire_us"`;ROIBytes int `json:"roi_encoded_bytes"`;Metrics []metric `json:"metrics"`}
 
 func main(){
-	iterations:=flag.Int("iterations",20,"measured iterations per warm CDP scenario");warmup:=flag.Int("warmup",3,"warmup iterations per scenario");flag.Parse();if *iterations<1||*warmup<0{fmt.Fprintln(os.Stderr,"iterations>=1 and warmup>=0 are required");os.Exit(2)}
+	iterations:=flag.Int("iterations",20,"measured iterations per warm CDP scenario")
+	warmup:=flag.Int("warmup",3,"warmup iterations per scenario")
+	comparative:=flag.Bool("comparative",false,"output comparative benchmark evaluation across raw CDP, chromedp, Rod, and Playwright")
+	flag.Parse()
+	if *comparative {
+		must(PrintComparisonReport(os.Stdout))
+		return
+	}
+	if *iterations<1||*warmup<0{fmt.Fprintln(os.Stderr,"iterations>=1 and warmup>=0 are required");os.Exit(2)}
 	ctx,cancel:=context.WithTimeout(context.Background(),45*time.Second);defer cancel();startupStart:=time.Now()
 	runtime,err:=fastcdp.StartResidentRuntime(ctx,fastcdp.RuntimeConfig{Browser:fastcdp.BrowserConfig{Executable:os.Getenv("UIUX_CHROME_BIN")},Pages:fastcdp.PagePoolConfig{MaxPages:1,DiagnosticsCapacity:64,Page:fastcdp.PageSpec{URL:"about:blank",Width:640,Height:480,DPR:1}}});must(err);startup:=time.Since(startupStart)
 	defer func(){closeCtx,closeCancel:=context.WithTimeout(context.Background(),5*time.Second);defer closeCancel();must(runtime.Close(closeCtx))}()

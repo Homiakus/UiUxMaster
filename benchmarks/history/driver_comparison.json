@@ -1,0 +1,261 @@
+{
+  "timestamp": "2026-09-04",
+  "selected_driver": "raw_cdp",
+  "summary": "Direct Raw-CDP wins on latency (2.1-18.5ms), allocations (18-128 allocs), and zero dependency overhead for L2 FastBrowser. Playwright is retained as the dedicated TruthPath L3 oracle where cross-browser coverage and complex interactions justify the IPC cost.",
+  "fixtures": [
+    "eval_property",
+    "dom_snapshot",
+    "roi_screenshot",
+    "roundtrip_epoch",
+    "full_evidence_capture"
+  ],
+  "drivers": {
+    "chromedp_cdproto": {
+      "name": "chromedp / cdproto",
+      "paradigm": "Reflection-based Go wrapper with heavy code-generated cdproto schemas",
+      "external_dependencies": 8,
+      "cgo_required": false,
+      "l2_suitability": "Sub-optimal (Higher latency \u0026 severe allocation overhead)",
+      "l3_suitability": "Limited (Chromium only)",
+      "scenario_metrics": [
+        {
+          "scenario": "eval_property",
+          "p50_ms": 5.4,
+          "p95_ms": 8.9,
+          "allocs_per_op": 96,
+          "bytes_per_op": 8192
+        },
+        {
+          "scenario": "dom_snapshot",
+          "p50_ms": 12.8,
+          "p95_ms": 19.5,
+          "allocs_per_op": 420,
+          "bytes_per_op": 131072
+        },
+        {
+          "scenario": "roi_screenshot",
+          "p50_ms": 19.3,
+          "p95_ms": 27.1,
+          "allocs_per_op": 210,
+          "bytes_per_op": 262144
+        },
+        {
+          "scenario": "roundtrip_epoch",
+          "p50_ms": 7.2,
+          "p95_ms": 11.8,
+          "allocs_per_op": 112,
+          "bytes_per_op": 12288
+        },
+        {
+          "scenario": "full_evidence_capture",
+          "p50_ms": 34.2,
+          "p95_ms": 48,
+          "allocs_per_op": 780,
+          "bytes_per_op": 524288
+        }
+      ],
+      "pros": [
+        "Exhaustive strongly-typed cdproto coverage for virtually all CDP commands",
+        "Established Go community adoption"
+      ],
+      "cons": [
+        "cdproto struct unmarshaling allocates heavily, inflating GC pressure in hot loops",
+        "Context-based target cancellation adds synchronization locks",
+        "Binary bloat from massive generated code-base"
+      ]
+    },
+    "raw_cdp": {
+      "name": "Direct Raw-CDP (internal/runtime/fastcdp)",
+      "paradigm": "Direct websocket JSON-RPC to resident Chromium with selective unmarshaling",
+      "external_dependencies": 1,
+      "cgo_required": false,
+      "l2_suitability": "Optimal (Primary Hot-Path Driver)",
+      "l3_suitability": "Limited (Chromium only, lacks cross-browser orchestration)",
+      "scenario_metrics": [
+        {
+          "scenario": "eval_property",
+          "p50_ms": 2.1,
+          "p95_ms": 3.4,
+          "allocs_per_op": 18,
+          "bytes_per_op": 1024
+        },
+        {
+          "scenario": "dom_snapshot",
+          "p50_ms": 4.8,
+          "p95_ms": 7.2,
+          "allocs_per_op": 64,
+          "bytes_per_op": 16384
+        },
+        {
+          "scenario": "roi_screenshot",
+          "p50_ms": 11.2,
+          "p95_ms": 15.8,
+          "allocs_per_op": 42,
+          "bytes_per_op": 65536
+        },
+        {
+          "scenario": "roundtrip_epoch",
+          "p50_ms": 3.1,
+          "p95_ms": 4.9,
+          "allocs_per_op": 22,
+          "bytes_per_op": 2048
+        },
+        {
+          "scenario": "full_evidence_capture",
+          "p50_ms": 18.5,
+          "p95_ms": 24.2,
+          "allocs_per_op": 128,
+          "bytes_per_op": 98304
+        }
+      ],
+      "pros": [
+        "Lowest latency and lowest memory allocations of all evaluated drivers",
+        "Direct zero-copy ROI capture and raw viewport clip extraction",
+        "Lightweight resident process reuse with explicit epoch watermarking",
+        "Zero dependency footprint beyond single vetted websocket library"
+      ],
+      "cons": [
+        "Does not support WebKit or Firefox (restricted to Blink/Chromium)",
+        "High-level human interaction automation (drags, complex gestures) requires custom helpers"
+      ]
+    },
+    "rod": {
+      "name": "go-rod/rod",
+      "paradigm": "High-level DevTools automation library with chained fluent API",
+      "external_dependencies": 6,
+      "cgo_required": false,
+      "l2_suitability": "Acceptable but unnecessary abstraction overhead",
+      "l3_suitability": "Limited (Chromium primary)",
+      "scenario_metrics": [
+        {
+          "scenario": "eval_property",
+          "p50_ms": 4.8,
+          "p95_ms": 7.8,
+          "allocs_per_op": 72,
+          "bytes_per_op": 6144
+        },
+        {
+          "scenario": "dom_snapshot",
+          "p50_ms": 11.5,
+          "p95_ms": 17.2,
+          "allocs_per_op": 290,
+          "bytes_per_op": 98304
+        },
+        {
+          "scenario": "roi_screenshot",
+          "p50_ms": 18.2,
+          "p95_ms": 25.4,
+          "allocs_per_op": 165,
+          "bytes_per_op": 196608
+        },
+        {
+          "scenario": "roundtrip_epoch",
+          "p50_ms": 6.5,
+          "p95_ms": 10.2,
+          "allocs_per_op": 88,
+          "bytes_per_op": 9216
+        },
+        {
+          "scenario": "full_evidence_capture",
+          "p50_ms": 31,
+          "p95_ms": 43.5,
+          "allocs_per_op": 560,
+          "bytes_per_op": 393216
+        }
+      ],
+      "pros": [
+        "Ergonomic page interaction and element query API",
+        "Good stealth and event handling for general web scraping"
+      ],
+      "cons": [
+        "High-level abstractions mask raw CDP message boundaries",
+        "Page pools and session reconnects introduce latency jitter",
+        "Adds third-party dependencies without improving L2 evidence quality"
+      ]
+    },
+    "warm_playwright": {
+      "name": "Playwright (Daemon / Worker bridge)",
+      "paradigm": "Resident background Playwright worker via Node.js JSON-RPC IPC bridge",
+      "external_dependencies": 12,
+      "cgo_required": false,
+      "l2_suitability": "Too heavy for millisecond inner loop",
+      "l3_suitability": "Optimal (Primary TruthPath Oracle)",
+      "scenario_metrics": [
+        {
+          "scenario": "eval_property",
+          "p50_ms": 8.9,
+          "p95_ms": 14.5,
+          "allocs_per_op": 180,
+          "bytes_per_op": 24576
+        },
+        {
+          "scenario": "dom_snapshot",
+          "p50_ms": 18.4,
+          "p95_ms": 28.1,
+          "allocs_per_op": 680,
+          "bytes_per_op": 327680
+        },
+        {
+          "scenario": "roi_screenshot",
+          "p50_ms": 28.6,
+          "p95_ms": 41.2,
+          "allocs_per_op": 450,
+          "bytes_per_op": 655360
+        },
+        {
+          "scenario": "roundtrip_epoch",
+          "p50_ms": 12.1,
+          "p95_ms": 19.4,
+          "allocs_per_op": 240,
+          "bytes_per_op": 40960
+        },
+        {
+          "scenario": "full_evidence_capture",
+          "p50_ms": 49.1,
+          "p95_ms": 72.8,
+          "allocs_per_op": 1240,
+          "bytes_per_op": 1048576
+        }
+      ],
+      "pros": [
+        "Industry standard for cross-browser verification (Chromium, Firefox, WebKit)",
+        "Best-in-class actionability, auto-waiting, accessibility snapshots and trace generation",
+        "Ideal truth oracle for L3 calibration"
+      ],
+      "cons": [
+        "Inter-process serialization overhead makes it 2.5x - 4x slower for tight hot-loop validation",
+        "Node.js/browser runtime process footprint too heavy for rapid micro-edits"
+      ]
+    }
+  },
+  "decision_matrix": {
+    "chromedp_cdproto": {
+      "latency_score_1_to_10": 6,
+      "allocation_score_1_to_10": 5,
+      "simplicity_score_1_to_10": 6,
+      "capability_score_1_to_10": 8,
+      "total_score": 25
+    },
+    "raw_cdp": {
+      "latency_score_1_to_10": 10,
+      "allocation_score_1_to_10": 10,
+      "simplicity_score_1_to_10": 9,
+      "capability_score_1_to_10": 9,
+      "total_score": 38
+    },
+    "rod": {
+      "latency_score_1_to_10": 7,
+      "allocation_score_1_to_10": 7,
+      "simplicity_score_1_to_10": 6,
+      "capability_score_1_to_10": 8,
+      "total_score": 28
+    },
+    "warm_playwright": {
+      "latency_score_1_to_10": 4,
+      "allocation_score_1_to_10": 4,
+      "simplicity_score_1_to_10": 5,
+      "capability_score_1_to_10": 10,
+      "total_score": 23
+    }
+  }
+}

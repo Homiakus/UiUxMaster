@@ -5,8 +5,10 @@ import (
 	"testing"
 
 	"github.com/Homiakus/UiUxMaster/control/axiom/controlplane"
+	"github.com/Homiakus/UiUxMaster/internal/engine"
 	"github.com/Homiakus/UiUxMaster/internal/evidence"
 	"github.com/Homiakus/UiUxMaster/internal/evidenceplan"
+	"github.com/Homiakus/UiUxMaster/internal/verifier"
 )
 
 type fakeCollector struct {
@@ -97,3 +99,65 @@ func TestGroundedHighSeverityFindingRoutesRepair(t *testing.T) {
 		t.Fatalf("decision = %q, want repair", decision)
 	}
 }
+
+type fakePipelineCollector struct {
+	called bool
+}
+
+func (f *fakePipelineCollector) Collect(_ context.Context, _ engine.ValidationRequest, _ engine.ValidationPlan) (evidence.Packet, error) {
+	f.called = true
+	return evidence.Packet{
+		Renderer: evidence.RendererRef{Tier: "L2"},
+		Elements: []evidence.ElementRef{
+			{
+				ID:        "btn-submit",
+				Tag:       "button",
+				Role:      "button",
+				Name:      "Save",
+				Visible:   true,
+				Clickable: true,
+				Bounds:    evidence.Rect{X: 10, Y: 10, Width: 100, Height: 44},
+			},
+		},
+		Diagnostics: &evidence.DiagnosticsEvidence{Complete: true},
+	}, nil
+}
+
+func TestPipelineAdapter_CanonicalExecution(t *testing.T) {
+	pipelineCollector := &fakePipelineCollector{}
+	pipeline := &engine.Pipeline{
+		Collector: pipelineCollector,
+		VerPolicy: verifier.DefaultPolicy(),
+	}
+
+	adapter := NewPipelineAdapter(pipeline)
+	change := controlplane.Change{
+		Intent: "quick_structural",
+	}
+
+	plan, err := adapter.PlanEvidence(context.Background(), change)
+	if err != nil {
+		t.Fatalf("PlanEvidence failed: %v", err)
+	}
+
+	result, err := adapter.CollectVerify(context.Background(), change, plan)
+	if err != nil {
+		t.Fatalf("CollectVerify failed: %v", err)
+	}
+
+	if !pipelineCollector.called {
+		t.Fatalf("expected canonical pipeline collector to be executed")
+	}
+	if result.BlockingFindings > 0 || result.HighFindings > 0 {
+		t.Fatalf("unexpected findings in clean run: %+v", result)
+	}
+
+	decision, err := adapter.Decide(context.Background(), change, plan, result)
+	if err != nil {
+		t.Fatalf("Decide failed: %v", err)
+	}
+	if decision != controlplane.DecisionPass {
+		t.Fatalf("decision = %s, want pass", decision)
+	}
+}
+

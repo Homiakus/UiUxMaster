@@ -151,17 +151,28 @@ type PixelEvidence struct {
 	DigestSHA256 string `json:"digest_sha256,omitempty"`
 }
 
-// RuntimeLatency keeps the L2 hot-path breakdown visible without coupling the
-// canonical packet to Go time.Duration serialization details.
+// RuntimeLatency keeps the hot-path and end-to-end pipeline breakdown visible without
+// coupling the canonical packet to Go time.Duration serialization details.
 type RuntimeLatency struct {
+	// L2 FastBrowser stage timing
 	WaitEpochMS     float64 `json:"wait_epoch_ms,omitempty"`
 	SnapshotMS      float64 `json:"snapshot_ms,omitempty"`
 	PixelsMS        float64 `json:"pixels_ms,omitempty"`
 	AccessibilityMS float64 `json:"accessibility_ms,omitempty"`
 	FontsMS         float64 `json:"fonts_ms,omitempty"`
 	DiagnosticsMS   float64 `json:"diagnostics_ms,omitempty"`
-	TotalMS         float64 `json:"total_ms,omitempty"`
 	Retries         int     `json:"retries,omitempty"`
+
+	// End-to-end pipeline totals
+	ImpactMS       float64 `json:"impact_ms,omitempty"`
+	InvalidationMS float64 `json:"invalidation_ms,omitempty"`
+	FidelityScanMS float64 `json:"fidelity_scan_ms,omitempty"`
+	RouteMS        float64 `json:"route_ms,omitempty"`
+	FastRenderMS   float64 `json:"fast_render_ms,omitempty"`
+	PixelDiffMS    float64 `json:"pixel_diff_ms,omitempty"`
+	VerifyMS       float64 `json:"verify_ms,omitempty"`
+	SynthesisMS    float64 `json:"synthesis_ms,omitempty"`
+	TotalMS        float64 `json:"total_ms,omitempty"`
 }
 
 // Packet is the canonical evidence envelope passed between browser adapters,

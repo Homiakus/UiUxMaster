@@ -24,16 +24,16 @@ The architectural rule is therefore:
 
 Purpose: inner design/edit loop.
 
-Preferred stack:
+Operational baseline:
 
 ```text
 Go core
-  ↓ direct typed CDP
-chromedp/cdproto
+  ↓ direct raw-CDP websocket
+internal/runtime/fastcdp
   ↓
-long-lived chrome-headless-shell
+resident Chromium process (chrome-headless-shell / Chromium)
   ↓
-already-open page / story gallery
+already-open page / story gallery (warm context/page pool)
   ↓
 HMR or targeted state update
 ```
@@ -69,19 +69,14 @@ FastPath may be permissive about warm state. TruthPath must prove that the produ
 
 ## 2. Why direct CDP in the hot path
 
-For UiUxMaster the Go process already owns orchestration. A direct CDP client removes an extra Node process and Playwright protocol layer from the most frequent observation operations.
+The current FastBrowser implementation (`internal/runtime/fastcdp`) uses a custom resident raw-CDP websocket transport. This provides minimal latency, zero cgo overhead, and direct access to `DOMSnapshot`, accessibility trees, runtime diagnostics, and ROI screenshots.
 
-`chromedp`/`cdproto` is preferred initially because:
+Driver choice status:
+- Direct raw-CDP is the current operational baseline on `main`;
+- `chromedp`/`cdproto`, Rod, and warm Playwright remain under comparative benchmarking;
+- Final permanent driver selection will be determined by reproducible benchmarks measuring latency, allocations, protocol stability, and maintenance complexity.
 
-- native Go;
-- direct Chrome DevTools Protocol;
-- no external runtime dependency in the Go hot path;
-- supports connecting to a long-running remote browser;
-- typed access to DOM, Runtime, Page, CSS, Performance and related CDP domains.
-
-Rod should be benchmarked as an alternative direct-CDP driver. Driver choice remains behind an adapter so benchmarks, not preference, decide.
-
-Playwright remains valuable because its actionability, browser coverage, tracing, assertions and interaction semantics are stronger than a minimal CDP driver. It is moved out of the common visual-observation path, not removed from the product.
+Playwright remains the implementation foundation for TruthPath (L3): its actionability, browser coverage, tracing, assertions and interaction semantics are essential for clean-state and cross-browser validation. It is moved out of the hot inner loop, not removed from the system.
 
 ---
 
@@ -514,7 +509,7 @@ The intended target architecture becomes:
                FASTPATH                               TRUTHPATH
           resident browser pool                   Playwright verifier
                     │                                     │
-        direct CDP (chromedp/cdproto)          clean/high-fidelity contexts
+        direct raw CDP (fastcdp)               clean/high-fidelity contexts
                     │                                     │
           chrome-headless-shell                 Chromium / WebKit / Firefox
                     │                                     │

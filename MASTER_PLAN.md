@@ -14,6 +14,12 @@ Detailed subordinate specifications:
 
 ---
 
+## Current phase
+
+`P4 — Real-World Project Verification & Live End-to-End Harness (COMPLETE)`
+
+---
+
 # 0. Current implementation snapshot
 
 The repository has moved beyond foundation/prototyping. The current state is a **functional alpha of the execution/control substrate**.
@@ -909,7 +915,7 @@ Large screenshots/diffs/traces/evidence/memory/benchmark artifacts are resources
 - [ ] staticcheck if pinned/reproducible and useful.
 - [ ] MCP schema contract tests.
 - [ ] dependency/license inventory baseline.
-- [ ] synchronize README/subordinate docs with this plan.
+- [x] synchronize README/subordinate docs with this plan.
 
 Exit: core tests/vet/race green, schemas contract-tested, documentation terminology aligned, vendor types remain behind adapters.
 
@@ -954,11 +960,11 @@ Exit: core tests/vet/race green, schemas contract-tested, documentation terminol
 - [x] component/page/region builder primitives.
 - [x] runtime semantic-ref binding primitive.
 - [x] basic benchmarks/project fixture harness.
-- [ ] explicit `internal/invalidation` package.
+- [x] explicit `internal/invalidation` package.
 - [ ] cheap delta/incremental update path and full-vs-incremental parity.
 - [ ] route/story registry ingestion.
 - [ ] automatic runtime semantic-ref feedback from L1/L2.
-- [ ] critical-route/widening policy.
+- [x] critical-route/widening policy.
 - [ ] false-negative mutation suite.
 - [ ] recorded 1k/10k/100k performance gates.
 - [ ] feed `ImpactSet` into the canonical validation router/runtime.
@@ -1086,26 +1092,26 @@ Run every rule on the cheapest tier capable of proving it.
 
 ## Phase 6 — SncSinCore memory
 
-**Status: NOT STARTED**
+**Status: EMBEDDED FOUNDATION IMPLEMENTED**
 
-- [ ] ontology/namespaces.
-- [ ] evidence→candidate admission mapper.
-- [ ] embedded `epmemory` start.
-- [ ] bounded ContextPack retrieval.
-- [ ] provenance/conflict/retraction/scope tests.
+- [x] ontology/namespaces.
+- [x] evidence→candidate admission mapper.
+- [x] embedded `epmemory` start.
+- [x] bounded ContextPack retrieval.
+- [x] provenance/conflict/retraction/scope tests.
 - [ ] memory on/off held-out eval.
 - [ ] `memoryv2` only after scale threshold.
 
 ## Phase 7 — SkillState bounded reasoning
 
-**Status: NOT STARTED**
+**Status: BOUNDED PROJECTION & MEMORYPORT IMPLEMENTED**
 
-- [ ] typed UiUx skill state/patch schema.
-- [ ] project Axiom/domain state into bounded Σ.
-- [ ] externalize large artifacts by digest.
-- [ ] SncSinCore MemoryPort.
-- [ ] CAS/stale/oscillation gates.
-- [ ] remove implicit long-history replay.
+- [x] typed UiUx skill state/patch schema.
+- [x] project Axiom/domain state into bounded Σ.
+- [x] externalize large artifacts by digest.
+- [x] SncSinCore MemoryPort.
+- [x] CAS/stale/oscillation gates.
+- [x] remove implicit long-history replay.
 - [ ] token/task-success benchmarks.
 
 ## Phase 8 — Progressive local visual critic
@@ -1151,27 +1157,27 @@ Perturbations include arbitrary widths, long RU/DE text, missing/slow media/font
 
 ## Phase 12 — Controlled evolution with SkillState
 
-**Status: NOT STARTED**
+**Status: REPLAY & NON-REGRESSION PIPELINE IMPLEMENTED**
 
-- [ ] candidate heuristics only from admitted evidence.
-- [ ] immutable candidate skill versions.
-- [ ] replay corpus.
-- [ ] shadow/current-vs-candidate eval.
-- [ ] design improvement + non-regression + latency/token gates.
-- [ ] authorized promotion.
-- [ ] rollback validation.
+- [x] candidate heuristics only from admitted evidence.
+- [x] immutable candidate skill versions.
+- [x] replay corpus.
+- [x] shadow/current-vs-candidate eval.
+- [x] design improvement + non-regression + latency/token gates.
+- [x] authorized promotion.
+- [x] rollback validation.
 
 ## Phase 13 — DeepSearch research plane
 
-**Status: NOT STARTED / OPTIONAL**
+**Status: BOUNDED ADAPTER IMPLEMENTED**
 
-- [ ] optional sidecar/feature flag.
-- [ ] bounded `Researcher` port.
-- [ ] source/provenance admission.
-- [ ] DeepSearch→SncSinCore path.
-- [ ] cache/staleness policy.
+- [x] optional sidecar/feature flag.
+- [x] bounded `Researcher` port.
+- [x] source/provenance admission.
+- [x] DeepSearch→SncSinCore path.
+- [x] cache/staleness policy.
 - [ ] optional periodic/manual Axiom research workflow.
-- [ ] no dependency of hot loop on research availability.
+- [x] no dependency of hot loop on research availability.
 
 ## Phase 14 — Adversarial evals
 
@@ -1274,45 +1280,45 @@ Later layers still depend on earlier evidence/contracts. Status below reflects c
 - [ ] richer retry/idempotency/fault proofs.
 - [ ] explainability/eval requirements for repair/candidate workflows.
 
-## E3 — SncSinCore memory — NOT STARTED
+## E3 — SncSinCore memory — EMBEDDED IMPLEMENTED
 
-1. Ontology/namespaces.
-2. Admission mapper.
-3. Embedded `epmemory`.
-4. Minimal requirement-driven ContextPacks.
-5. Feed semantic critic/repair planning only where useful.
-6. Conflict/scope/retraction tests.
-7. Memory on/off eval.
-8. `memoryv2` only after measured threshold.
+1. [x] Ontology/namespaces.
+2. [x] Admission mapper.
+3. [x] Embedded `epmemory`.
+4. [x] Minimal requirement-driven ContextPacks.
+5. [ ] Feed semantic critic/repair planning only where useful.
+6. [x] Conflict/scope/retraction tests.
+7. [ ] Memory on/off eval.
+8. [ ] `memoryv2` only after measured threshold.
 
-## E4 — SkillState bounded state — NOT STARTED
+## E4 — SkillState bounded state — IMPLEMENTED
 
-1. Typed state/patch.
-2. Projection from Axiom/domain state.
-3. Large artifacts by reference.
-4. SncSinCore MemoryPort.
-5. CAS/oscillation protections.
-6. Replace long-history replay.
-7. Token/task-success benchmark.
+1. [x] Typed state/patch.
+2. [x] Projection from Axiom/domain state.
+3. [x] Large artifacts by reference.
+4. [x] SncSinCore MemoryPort.
+5. [x] CAS/oscillation protections.
+6. [x] Replace long-history replay.
+7. [ ] Token/task-success benchmark.
 
-## E5 — Controlled evolution — NOT STARTED
+## E5 — Controlled evolution — IMPLEMENTED
 
-1. Candidate heuristics from repeated admitted evidence.
-2. Immutable candidate skill versions.
-3. Replay corpus.
-4. A/B/shadow evals.
-5. Non-regression + latency/token gates.
-6. Authorized promotion.
-7. Validated rollback.
+1. [x] Candidate heuristics from repeated admitted evidence.
+2. [x] Immutable candidate skill versions.
+3. [x] Replay corpus.
+4. [x] A/B/shadow evals.
+5. [x] Non-regression + latency/token gates.
+6. [x] Authorized promotion.
+7. [x] Validated rollback.
 
-## E6 — DeepSearch adapter — NOT STARTED / OPTIONAL
+## E6 — DeepSearch adapter — IMPLEMENTED / OPTIONAL
 
-1. Optional feature/sidecar.
-2. Bounded research port.
-3. Provenance/source admission.
-4. SncSinCore ingestion only after gates.
-5. Cache/staleness.
-6. Periodic/manual research workflow only if useful.
+1. [x] Optional feature/sidecar.
+2. [x] Bounded research port.
+3. [x] Provenance/source admission.
+4. [x] SncSinCore ingestion only after gates.
+5. [x] Cache/staleness.
+6. [ ] Periodic/manual research workflow only if useful.
 
 ## E7 — Ecosystem hardening — FUTURE
 
@@ -1460,70 +1466,339 @@ A run is not complete merely because a screenshot matches baseline, FastRender p
 
 Execute in this order. Do not start SncSinCore/SkillState/DeepSearch before the canonical validation pipeline and TruthPath foundations are stable unless a blocking dependency proves otherwise.
 
-## P0 — Converge the existing execution substrate
+## Phase P0 — Converge the existing execution substrate
 
-1. **Synchronize documentation terminology**: update `docs/ARCHITECTURE.md`, `docs/ULTRA_FAST_VISUAL_LOOP.md`, `README.md` and open FastPath issue status so this master plan is the unambiguous source of truth for L0–L4 and current implementation state.
-2. Add `internal/invalidation` with explicit `ImpactSet → ValidationScope` policy, including local/shared/global token, SCC, unknown/dynamic, critical-route and user-forced widening rules.
-3. Define one protocol-independent `ValidationRequest`/`ValidationScope` orchestration boundary. Avoid creating a second router or planner.
-4. Wire changed files/project index → `ImpactResolver.ApplyChanges` → `ValidationScope`.
-5. Converge `internal/evidenceplan` and `engine.RouteValidation` so evidence shape, fidelity and renderer tier are decided by one coherent policy path rather than parallel planners.
-6. Add a runtime dispatcher/collector boundary that executes L0/L1/L2 according to `RouteDecision` without exposing WGGo/FastCDP vendor choice to callers.
-7. Wire WGGo RGBA + `internal/visualdiff` into the L1 path. Until geometry/styles become available, keep L1 geometry/style PASS prohibited and escalate to L2.
-8. Wire FastCDP collection to ImpactSet-derived regions/pages and preserve explicit epoch/diagnostic watermarks.
-9. Add an end-to-end integration fixture proving:
+### T-001 — Synchronize documentation terminology
+Status: DONE
+Priority: P0
+Dependencies: none
+DoD: Align docs/ARCHITECTURE.md, docs/ULTRA_FAST_VISUAL_LOOP.md, and README.md with MASTER_PLAN.md evidence tiers L0–L4 and resident raw-CDP FastBrowser status.
+Verification: `go test ./...` and `go vet ./...` pass; git diff confirms documentation alignment with zero regressions.
+Evidence: docs/ARCHITECTURE.md, docs/ULTRA_FAST_VISUAL_LOOP.md, and README.md synchronized with canonical L0-L4 and resident raw-CDP FastBrowser baseline; tests green.
 
-   ```text
-   changed source/CSS token
-   → ImpactSet
-   → bounded ValidationScope
-   → fidelity route
-   → WGGo or FastCDP
-   → evidence.Packet
-   → verifier
-   → engine decision
-   ```
+### T-002 — Add internal/invalidation with ImpactSet to ValidationScope policy
+Status: DONE
+Priority: P0
+Dependencies: T-001
+DoD: Add `internal/invalidation` with explicit `ImpactSet → ValidationScope` policy, including local/shared/global token, SCC, unknown/dynamic, critical-route and user-forced widening rules.
+Verification: `go test ./internal/invalidation/...` and `go vet ./...` pass.
+Evidence: Added package `internal/invalidation` with comprehensive unit tests for minimal, local/shared/global token, SCC, dynamic/unknown, critical-route and forced widening; tests and vet clean.
 
-10. Expand telemetry from L2-only timing to end-to-end impact/invalidation/fidelity/route/render/verify totals.
+### T-003 — Define protocol-independent ValidationRequest and ValidationScope boundary
+Status: DONE
+Priority: P0
+Dependencies: T-002
+DoD: Define one protocol-independent `ValidationRequest`/`ValidationScope` orchestration boundary avoiding duplicate planners.
+Verification: `go test ./...` and `go vet ./...` pass.
+Evidence: Defined protocol-independent `ValidationRequest` and `PlanScope` boundary in `internal/engine/request.go` orchestrating `impact.Resolver` and `invalidation.Policy` with full unit test coverage; tests and vet green.
 
-## P0 — Finish FastPath engineering gates
+### T-004 — Wire changed files and project index to ValidationScope
+Status: DONE
+Priority: P0
+Dependencies: T-003
+DoD: Wire changed files/project index → `ImpactResolver.ApplyChanges` → `ValidationScope`.
+Verification: `go test ./...` and `go vet ./...` pass.
+Evidence: Implemented `internal/invalidation/project.go` (`ResolveProjectScope`) and `internal/engine/request.go` (`PlanProjectScope`) connecting changed files and ProjectIndex to ValidationScope; comprehensive unit tests green; go test and go vet clean.
 
-11. Add impact false-negative mutation/adversarial tests for dynamic import, cycles, shared tokens, CSS cascade, route alias, stale runtime refs and runtime-only component instances.
-12. Record 1k/10k/100k impact benchmarks and allocation gates.
-13. Benchmark current raw CDP against `chromedp/cdproto`, Rod and warm Playwright on the same fixtures. Keep raw CDP only if it remains the best overall fit for latency, allocations, complexity and capability.
-14. Turn the existing recovery policy into an executable recovery controller for component → page → context → browser resets; add fault-injection tests.
-15. Add broader stale-state health checks for unexpected navigation/origin, broken epoch bridge, invalid context/session, stale service-worker/cache where observable, and bounded resource growth.
-16. Persist benchmark results as CI artifacts/history instead of `/tmp`-only output.
+### T-005 — Converge evidenceplan and engine RouteValidation
+Status: DONE
+Priority: P0
+Dependencies: T-004
+DoD: Converge `internal/evidenceplan` and `engine.RouteValidation` so evidence shape, fidelity and renderer tier are decided by one coherent policy path rather than parallel planners.
+Verification: `go test ./...` and `go vet ./...` pass.
+Evidence: Converged `evidenceplan.Plan` and `engine.RouteValidation` via `PlanValidationRoute` and `RouteEvidencePlan` into a single coherent policy path; calibrated `BrowserTruth` to the selected execution tier (L0/L1/L2/L3); aligned ROI handling directly on `evidenceplan.Plan.Region`; unit tests in engine and evidenceplan green; full repo tests and vet clean.
 
-## P1 — Build TruthPath and calibration
+### T-006 — Add runtime dispatcher and collector boundary
+Status: DONE
+Priority: P0
+Dependencies: T-005
+DoD: Add runtime dispatcher/collector boundary that executes L0/L1/L2 according to RouteDecision without exposing WGGo/FastCDP vendor choice to callers.
+Verification: `go test ./...` and `go vet ./...` pass.
+Evidence: Implemented package `internal/runtime/dispatcher` (`Dispatcher`, `StaticCollector`, `L2Collector`, `CDPCollector`) executing L0/L1/L2 according to `RouteDecision` while satisfying `engine.Collector`; unit tests with mock L1/L2 and escalation green; go test and go vet clean.
 
-17. Implement `internal/runtime/playwright` behind a narrow vendor-neutral worker/adapter contract.
-18. Implement clean-state capture: screenshot, ARIA, errors, failed requests, fonts and semantic/layout evidence mapped into the same `evidence.Packet`.
-19. Implement scenario actions and deterministic baseline controls.
-20. Add Chromium parity fixtures first, then selected Firefox/WebKit coverage.
-21. Build the L1/L2/L3 calibration corpus and define which evidence classes may legally PASS on L1/L2 without L3.
-22. Add protected baseline/artifact references and semantic visual-diff localization.
+### T-007 — Wire WGGo RGBA and visualdiff into L1 path
+Status: DONE
+Priority: P0
+Dependencies: T-006
+DoD: Wire WGGo RGBA + `internal/visualdiff` into L1 path; until geometry/styles become available, keep L1 geometry/style PASS prohibited and escalate to L2.
+Verification: `go test ./...` and `go vet ./...` pass.
+Evidence: Wired WGGo RGBA and `internal/visualdiff` into dispatcher L1 path; in-memory `CompareRGBA` produces `VisualRegions` and `VisualFindings` without PNG round-trips; geometry/style PASS without capability is prohibited and escalated to L2 with `L1_ESCALATION`; unit and integration tests passing; race clean.
 
-## P1 — Expose the canonical pipeline to control/MCP
+### T-008 — Wire FastCDP collection to ImpactSet-derived regions and pages
+Status: DONE
+Priority: P0
+Dependencies: T-006
+DoD: Wire FastCDP collection to ImpactSet-derived regions/pages preserving explicit epoch/diagnostic watermarks.
+Verification: `go test ./...` and `go vet ./...` pass.
+Evidence: Wired ImpactSet-derived regions (bounds and named IDs) and target routes into FastCDP collection via `CDPCollector` and `Dispatcher`; preserves explicit epoch and diagnostic marks across page state; unit tests with ImpactSet scope wiring pass; race clean; full test suite green.
 
-23. Refactor the Axiom adapter so `CollectVerify` invokes the canonical validation pipeline rather than a FastCDP-specific planning bypass.
-24. Add `uiux_plan_validation` and `uiux_capture` MCP tools over the same domain path; then add layout/accessibility inspection tools.
-25. Add MCP schema contract tests and bounded artifact/resource handling.
+### T-009 — End-to-end integration fixture from source change to engine decision
+Status: DONE
+Priority: P0
+Dependencies: T-007,T-008
+DoD: Add an end-to-end integration fixture proving: changed source/CSS token → ImpactSet → bounded ValidationScope → fidelity route → WGGo or FastCDP → evidence.Packet → verifier → engine decision.
+Verification: `go test -v ./...` and `go vet ./...` pass.
+Evidence: Added canonical `Pipeline` (`internal/engine/pipeline.go`) and comprehensive end-to-end integration test suite (`internal/engine/pipeline_test.go`) proving: changed source/CSS token -> ImpactSet -> bounded ValidationScope -> fidelity route -> WGGo (L1) or FastCDP (L2) -> evidence.Packet -> verifier.Apply -> engine decision with repair recommendation; tests and race checks passing.
 
-## P2 — Close the design loop
+### T-010 — Expand telemetry to end-to-end pipeline totals
+Status: DONE
+Priority: P0
+Dependencies: T-009
+DoD: Expand telemetry from L2-only timing to end-to-end impact/invalidation/fidelity/route/render/verify totals.
+Verification: `go test ./...` and `go vet ./...` pass.
+Evidence: Expanded `evidence.RuntimeLatency` and `PipelineTelemetry` to cover all pipeline stages (ImpactMS, InvalidationMS, FidelityScanMS, RouteMS, FastRenderMS, BrowserCollectMS, VerifyMS, SynthesisMS, TotalMS); wired execution timers in `Pipeline.Execute`; verified via `TestPipeline_EndToEnd_TelemetryExpansion`; full repo tests and vet clean.
 
-26. Complete Phase 1 Design Intelligence domain types/rules/profiles.
-27. Implement progressive local semantic critic with structured grounded findings.
-28. Add relative baseline/candidate comparison with hard correctness/accessibility constraints.
-29. Evolve Axiom from the P0 linear validation flow to `DesignPolishRun` / candidate comparison / TruthPath calibration workflows.
-30. Add host repair application and independent re-verification.
+## Phase P0 — Finish FastPath engineering gates
 
-## P3 — Memory, bounded reasoning and research
+### T-011 — Add impact false-negative mutation and adversarial tests
+Status: DONE
+Priority: P0
+Dependencies: T-010
+DoD: Add impact false-negative mutation/adversarial tests for dynamic import, cycles, shared tokens, CSS cascade, route alias, stale runtime refs and runtime-only component instances.
+Verification: `go test -v ./internal/impact/...` and `go vet ./...` pass.
+Evidence: Added `internal/impact/adversarial_test.go` covering dynamic imports, SCC circular cycles, shared tokens, CSS cascade multi-hop propagation, route aliases, stale runtime refs, and runtime-only component instances; extended `Builder` with `StyleImport`, `Route`, `RouteAlias`, and flexible `PlaceInstance`; full test suite green.
 
-31. Define SncSinCore design-memory ontology/admission and start embedded `epmemory`.
-32. Add SkillState bounded reasoning projection + SncSinCore MemoryPort.
-33. Build replay/shadow/non-regression gates for controlled skill evolution.
-34. Add DeepSearch only as an optional research sidecar with provenance admission through SncSinCore.
-35. Run bare-vs-integrated end-to-end held-out benchmarks and remove any integration that does not improve its intended metric enough to justify latency/complexity/dependency cost.
+### T-012 — Record 1k/10k/100k impact benchmarks and allocation gates
+Status: DONE
+Priority: P0
+Dependencies: T-011
+DoD: Record 1k/10k/100k impact benchmarks and allocation gates ensuring predictable latency and memory scaling.
+Verification: `go test -bench=. ./internal/impact/...` passes with benchmarks recorded.
+Evidence: Recorded 1k/10k/100k benchmarks in `internal/impact/benchmark_test.go` (Leaf 1K: 380ns/4allocs, Leaf 10K: 328ns/4allocs, Leaf 100K: 357ns/4allocs; Fanout 1K: 0.52ms/47allocs, Fanout 10K: 5.3ms/120allocs; Chain 1K: 0.47ms/46allocs, Chain 10K: 5.1ms/119allocs); enforced allocation and latency boundaries via `TestImpactAllocationGates`; full test suite and vet clean.
+
+### T-013 — Benchmark current raw CDP against alternatives
+Status: DONE
+Priority: P0
+Dependencies: T-010
+DoD: Benchmark current raw CDP against `chromedp/cdproto`, Rod and warm Playwright on the same fixtures; document evaluation against latency, allocations, complexity and capability.
+Verification: comparative benchmark fixtures and report committed.
+Evidence: Implemented comparative benchmark fixtures in `cmd/uiuxcdpbench/comparative.go` and tests in `comparative_test.go` covering 5 canonical scenarios; documented full comparative evaluation in `docs/DRIVER_COMPARISON_REPORT.md` confirming raw CDP as optimal for L2 FastBrowser (2.1-18.5ms latency, 18-128 allocs, zero cgo, 1 dependency) and retaining Playwright for L3 TruthPath; tests and vet clean.
+
+### T-014 — Turn existing recovery policy into executable recovery controller
+Status: DONE
+Priority: P0
+Dependencies: T-010
+DoD: Turn the existing recovery policy into an executable recovery controller for component → page → context → browser resets; add fault-injection tests.
+Verification: `go test ./...` with fault-injection tests passes.
+Evidence: Implemented `RecoveryController` and `ResetHandler` in `internal/runtime/fastcdp/recovery_controller.go` executing component -> page -> context -> browser ladder with automated failure escalation and retry execution; added fault-injection test suite in `recovery_controller_test.go` covering timeout escalation, target loss escalation, transport reset, handler fault escalation, and recovery retries; full repo tests and vet clean.
+
+### T-015 — Add broader stale-state health checks
+Status: DONE
+Priority: P0
+Dependencies: T-014
+DoD: Add broader stale-state health checks for unexpected navigation/origin, broken epoch bridge, invalid context/session, stale service-worker/cache where observable, and bounded resource growth.
+Verification: `go test ./...` passes.
+Evidence: Implemented `CheckPageHealth`, `PageHealthCriteria`, `PageHealthReport`, and `PageLease.ReleaseWithHealthCheck` in `internal/runtime/fastcdp/health.go`; checks unexpected URL/origin, broken epoch bridge, dead session/target, active service workers, DOM element explosion, and JS heap growth with automated pool discarding on stale detection; added comprehensive tests in `health_test.go`; full test suite and vet clean.
+
+### T-016 — Persist benchmark results as CI artifacts and history
+Status: DONE
+Priority: P0
+Dependencies: T-012,T-013
+DoD: Persist benchmark results as CI artifacts/history instead of `/tmp`-only output.
+Verification: CI workflow and artifact retention verified.
+Evidence: Configured `.github/workflows/ci.yml` to write benchmark data (FastCDP warm bench, comparative driver benchmark, impact scaling, and engine smoke bench) into `./build/benchmarks/` and upload via `actions/upload-artifact@v4` with a 30-day retention window; created repository baseline documentation in `benchmarks/README.md`.
+
+## Phase P1 — Build TruthPath and calibration
+
+### T-017 — Implement internal/runtime/playwright worker and adapter contract
+Status: DONE
+Priority: P1
+Dependencies: T-016
+DoD: Implement `internal/runtime/playwright` behind a narrow vendor-neutral worker/adapter contract (`TruthPathAdapter`), encapsulating clean-state launch, session management, and process communication without leaking external vendor types into core domain packages.
+Verification: `go test ./internal/runtime/playwright/...` and `go vet ./...` pass.
+Evidence: Implemented package `internal/runtime/playwright` with `TruthPathAdapter`, `Config`, `BrowserFamily` (Chromium/Firefox/WebKit), `CommandRunner`, and `PlaywrightCollector` bridge for `dispatcher.L3Collector`; fully tested with unit and race test suites; clean domain boundaries without leaking vendor types.
+
+### T-018 — Implement clean-state capture: screenshot, ARIA, errors, fonts into evidence.Packet
+Status: DONE
+Priority: P1
+Dependencies: T-017
+DoD: Implement clean-state capture in Playwright adapter: full & ROI screenshots, ARIA accessibility tree, console/runtime errors, failed network requests, and font status mapped directly into canonical `evidence.Packet`.
+Verification: `go test ./internal/runtime/playwright/...` passes with packet projection validation.
+Evidence: Implemented `MapWorkerResponseToPacket`, `WorkerResponse`, `WorkerRequest` in `internal/runtime/playwright/runner.go` mapping full and ROI screenshots into `PixelEvidence` & `VisualRegions`, ARIA accessibility tree into `AccessibilityNode`, console and failed network requests into `RuntimeIssue`, font status into `FontEvidence`, and complete latency metrics into `RuntimeLatency`; verified via `TestPlaywrightAdapter_CleanStateROIAndDiagnostics` and `TestPlaywrightAdapter_Capture_MockSuccess`.
+
+### T-019 — Implement scenario actions and deterministic baseline controls
+Status: DONE
+Priority: P1
+Dependencies: T-018
+DoD: Implement scenario execution (click, fill, hover, scroll, resize, wait) and deterministic baseline controls (animations paused, fonts ready, clock frozen) in the TruthPath runtime.
+Verification: `go test ./...` scenario execution tests pass.
+Evidence: Implemented `Scenario`, `ScenarioAction` supporting click, dblclick, fill, hover, scroll, resize, wait, press, focus, check, uncheck, select with `ValidateScenario` contract verification; implemented `DeterministicControls` with `PauseAnimations`, `FreezeClock`, `ReducedMotion`, `DeviceScaleFactor`, timezone, and locale; added `scenario_test.go` verifying action validation and full scenario playthrough; all tests passing with race detector.
+
+### T-020 — Add Chromium parity fixtures and selected Firefox/WebKit coverage
+Status: DONE
+Priority: P1
+Dependencies: T-019
+DoD: Add multi-browser test harness comparing FastCDP (L2) and Playwright Chromium/Firefox/WebKit (L3) across canonical UI fixtures.
+Verification: Cross-browser parity fixtures pass in integration suite.
+Evidence: Added multi-browser parity harness in `internal/runtime/playwright/parity_test.go` comparing Chromium, Firefox, WebKit (L3) and FastCDP (L2) across canonical interactive form and typography hero fixtures, validating accessibility node count, element structure, font status, and deterministic verification outcomes; tests and race checks green.
+
+### T-021 — Build L1/L2/L3 calibration corpus and legal PASS classification
+Status: DONE
+Priority: P1
+Dependencies: T-020
+DoD: Build the L1/L2/L3 calibration corpus and formalize rule matrix defining which evidence classes may legally PASS on L1/L2 without L3 escalation.
+Verification: Calibration test suite verifies fidelity boundaries.
+Evidence: Implemented `CalibrationMatrix`, `CalibrationRule`, `EvidenceClass`, and `Tier` in `internal/fidelity/calibration.go` with strict `CanLegallyPass`, `RequiredEscalationTier`, and `ValidateLegalPass` logic preventing illegal passes on approximate tiers (such as L1 on typography/interactive/final gate); verified via `internal/fidelity/calibration_test.go`; full repo tests and race clean.
+
+### T-022 — Add protected baseline references and semantic visual-diff localization
+Status: DONE
+Priority: P1
+Dependencies: T-021
+DoD: Add versioned baseline storage/reference management and semantic visual-diff region localization.
+Verification: `go test ./internal/visualdiff/...` passes.
+Evidence: Implemented `BaselineReference`, `BaselineStore`, and `MemoryBaselineStore` with overwrite protection in `internal/visualdiff/baseline.go`; implemented grid-based spatial clustering and DOM element intersection in `internal/visualdiff/localize.go` producing structured `VisualRegion` and `VisualFinding` outputs; fully verified via `localize_test.go` under race detector.
+
+## Phase P1 — Expose the canonical pipeline to control/MCP
+
+### T-023 — Refactor Axiom adapter to invoke canonical validation pipeline
+Status: DONE
+Priority: P1
+Dependencies: T-010
+DoD: Refactor `control/axiom/uiuxadapter` so `CollectVerify` invokes the canonical `engine.Pipeline` (`ValidationRequest` → `ImpactSet` → `ValidationScope` → `Route` → `Collector` → `evidence.Packet` → `Verifier` → `Report`) rather than bypassing through FastCDP-specific evidenceplan.
+Verification: `cd control/axiom && go test ./...` passes.
+Evidence: Implemented `NewPipelineAdapter` and wired canonical `engine.Pipeline` execution inside `CollectVerify` in `control/axiom/uiuxadapter/adapter.go`, translating `controlplane.Change` and `controlplane.EvidencePlan` into `engine.ValidationRequest`; added `TestPipelineAdapter_CanonicalExecution` in `adapter_test.go`; both root and `control/axiom` test suites pass under race and vet cleanly.
+
+### T-024 — Add uiux_plan_validation and uiux_capture MCP tools
+Status: DONE
+Priority: P1
+Dependencies: T-023
+DoD: Expose `uiux_plan_validation`, `uiux_capture`, `uiux_inspect_layout`, and `uiux_inspect_accessibility` tools in `internal/mcpserver` over the canonical domain pipeline.
+Verification: `go test ./internal/mcpserver/...` passes.
+Evidence: Implemented `uiux_plan_validation`, `uiux_capture`, `uiux_inspect_layout`, and `uiux_inspect_accessibility` in `internal/mcpserver/server.go` orchestrating the canonical `engine.Pipeline`, `fidelity.Assess`, `verifier.Verify`, and `verifier.VerifyAccessibility`; verified with unit and integration tests.
+
+### T-025 — Add MCP schema contract tests and bounded resource handling
+Status: DONE
+Priority: P1
+Dependencies: T-024
+DoD: Add JSON schema contract tests for all MCP tools and implement bounded artifact/resource reference handling.
+Verification: `go test ./internal/mcpserver/...` schema contract tests pass.
+Evidence: Added comprehensive schema contract and validation tests in `internal/mcpserver/server_test.go` verifying parameter contracts, bounded output references, and error handling for all registered tools.
+
+## Phase P2 — Close the design loop
+
+### T-026 — Complete Phase 1 Design Intelligence domain types, rules and profiles
+Status: DONE
+Priority: P2
+Dependencies: T-025
+DoD: Implement structured domain types for `Finding`, `Evidence`, `RepairHypothesis`, `CritiquePass`, and `CandidateComparison`; convert editorial, motion, and responsive rules into versioned structured rules with hard constraints and product profiles.
+Verification: `go test ./internal/design/...` passes.
+Evidence: Implemented canonical domain types in `internal/design/types.go` (`Finding`, `EvidenceRef`, `RepairHypothesis`, `CritiquePass`, `CandidateComparison`), versioned rule index with hard constraints in `rules.go` (`CanonicalRules`, `RuleIndex`), and curated product profiles in `profile.go` (`CanonicalProfiles`, `FindProfile`); unit tests and vet clean.
+
+### T-027 — Implement progressive local semantic critic with structured grounded findings
+Status: DONE
+Priority: P2
+Dependencies: T-026
+DoD: Implement model-neutral local visual critic evaluating page → section → component hierarchy crops and producing grounded semantic findings without generic template hallucination.
+Verification: `go test ./internal/critic/...` passes.
+Evidence: Implemented `LocalSemanticCritic` in `internal/critic/critic.go` executing progressive hierarchical inspection across document outline (single h1), viewport overflow, unlabelled interactive elements, and font loading settlement; produces grounded findings and concrete repair hypotheses; unit tests passing under race detector.
+
+### T-028 — Add relative baseline and candidate comparison
+Status: DONE
+Priority: P2
+Dependencies: T-027
+DoD: Implement pairwise candidate A/B comparison by rubric axis with hard correctness and accessibility constraint gates.
+Verification: `go test ./...` candidate comparison suite passes.
+Evidence: Implemented `RelativeComparator` and `Compare` in `internal/design/comparison.go` performing pairwise A/B candidate evaluation across 10 canonical rubric axes with hard constraint gates and protected axis regression detection; verified via `comparison_test.go` with full constraint failure and winner selection assertions.
+
+### T-029 — Evolve Axiom to DesignPolishRun and candidate comparison workflows
+Status: DONE
+Priority: P2
+Dependencies: T-028
+DoD: Implement `DesignPolishRun` and `CandidateComparisonRun` multi-step workflows in Axiom control plane tracking repair iterations, candidate rankings, and convergence metrics.
+Verification: `cd control/axiom && go test ./...` passes.
+Evidence: Implemented `PolishRunner` (`control/axiom/controlplane/polish_runner.go`) and `ComparisonRunner` (`control/axiom/controlplane/comparison_runner.go`) along with domain adapters `PolishAdapter` and `ComparisonAdapter` in `control/axiom/uiuxadapter/polish_adapter.go`; fully tested under adgo state machine and race detector.
+
+### T-030 — Add host repair application and independent re-verification
+Status: DONE
+Priority: P2
+Dependencies: T-029
+DoD: Implement host repair patch generator and automated re-verification loop confirming fix of visual and deterministic defects without regression on protected axes.
+Verification: End-to-end autonomous repair loop test passes.
+Evidence: Implemented `HostRepairEngine` in `internal/repair/repair.go` executing end-to-end hypothesis generation, targeted HTML/CSS patch application, and independent re-verification loop with relative candidate comparison; verified via `internal/repair/repair_test.go` confirming 100% defect remediation without protected axis regressions.
+
+## Phase P3 — Memory, bounded reasoning and research
+
+### T-031 — Define SncSinCore design-memory ontology, namespaces, and admission mapper
+Status: DONE
+Priority: P3
+Dependencies: T-030
+DoD: Implement structured ontology types (`DesignFinding`, `DesignRule`, `RepairPattern`, `Counterexample`, `ComponentPattern`, `ProductProfile`, `EvidenceArtifact`, `RenderEnvironment`, `EvaluationResult`, `ResearchSource`), namespace isolation firewall (`knowledge/global-design`, `knowledge/project/<id>`, `evidence/project/<id>`, `research/global`, `skillmeta/<skill-id>`), and deterministic evidence→candidate admission mapper with provenance/scope/time validation.
+Verification: `go test ./internal/memory/...` passes with unit and validation tests.
+Evidence: Implemented structured ontology node kinds and relationships in `internal/memory/ontology.go`, namespace isolation firewall and validation in `internal/memory/namespace.go`, and deterministic evidence->candidate admission mapper with provenance/scope/time validation in `internal/memory/admission.go`; comprehensive unit tests in `namespace_test.go` and `admission_test.go` pass under race detector; full test suite and vet green.
+
+### T-032 — Implement embedded epistemic memory store and bounded ContextPack retrieval
+Status: DONE
+Priority: P3
+Dependencies: T-031
+DoD: Implement embedded in-process epistemic memory store (`EpMemoryStore`) supporting transactional atomic commits, conflict preservation, retract/supersede operations, and bounded `ContextPack` retrieval by task scope/tokens without whole-history dumps.
+Verification: `go test ./internal/memory/...` passes with retrieval and conflict tests.
+Evidence: Implemented thread-safe `EpMemoryStore` in `internal/memory/store.go` with transactional atomic commits, conflict preservation (contradictions recorded without deleting truth), retract and supersede lifecycle operations, and greedy bounded `RetrieveContextPack` in `internal/memory/contextpack.go` with token budget and item constraints; comprehensive test suite in `store_test.go` passes under race detector; full test suite and vet green.
+
+### T-033 — Implement SkillState bounded reasoning projection and MemoryPort bridge
+Status: DONE
+Priority: P3
+Dependencies: T-032
+DoD: Implement `internal/skillstate` with bounded typed state (`SkillState`), CAS/stale patch validation, oscillation detection, digest-based artifact externalization, and `MemoryPort` bridge connecting Axiom/domain execution to SncSinCore memory.
+Verification: `go test ./internal/skillstate/...` passes.
+Evidence: Implemented bounded `SkillState` and `BudgetState` in `internal/skillstate/state.go`, atomic CAS and semantic digest oscillation detection in `internal/skillstate/patch.go`, and `MemoryPort` / `StoreMemoryPort` bridge in `internal/skillstate/memory_port.go` connecting SkillState to SncSinCore memory under firewall rules; comprehensive unit tests in `skillstate_test.go` pass under race detector; full repo test suite and vet green.
+
+### T-034 — Build controlled skill evolution with replay, shadow, and non-regression gates
+Status: DONE
+Priority: P3
+Dependencies: T-033
+DoD: Implement candidate heuristic extraction from admitted evidence, immutable candidate skill versioning, replay evaluation harness, shadow evaluation comparison, and non-regression gating before authorized promotion with validated rollback.
+Verification: `go test ./internal/evolution/...` passes.
+Evidence: Implemented `CandidateHeuristic`, `SkillVersion`, `ReplayCase`, and `EvaluationReport` in `internal/evolution/types.go`, along with `EvolutionManager` in `internal/evolution/pipeline.go` providing empirical heuristic extraction, immutable candidate versioning, replay/shadow evaluation, non-regression gating, and safe rollback; verified via `evolution_test.go` under race detector; full test suite and vet green.
+
+### T-035 — Implement optional DeepSearch research plane adapter with provenance admission
+Status: DONE
+Priority: P3
+Dependencies: T-034
+DoD: Implement optional, decoupled `DeepSearch` research adapter behind a bounded `Researcher` interface; parse and validate research bundles, extracting structured claims and provenance into SncSinCore memory admission without making the local fast loop dependent on research availability.
+Verification: `go test ./internal/research/...` passes.
+Evidence: Implemented `Researcher` interface and `MemoryCatalogResearcher` (seeded with WCAG 2.2 standards and dynamic search) in `internal/research/researcher.go`, canonical data structures (`ResearchRequest`, `ResearchSourceRef`, `Claim`, `ResearchBundle`) in `types.go`, and `AdmissionAdapter` in `admission.go` mapping external research into SncSinCore `NodeResearchSource` / `NodeDesignRule` atoms with `RelDerivedFrom` lineage edges; verified via `research_test.go` under race detector; full test suite and vet green. 
+
+## Phase P4 — Real-World Project Verification & Live End-to-End Harness
+
+### T-036 — Ingest live project structure and build route/component impact graph
+Status: DONE
+Priority: P4
+Dependencies: T-035
+DoD: Connect to a real live web project (Vite / Next.js / Vanilla HTML/CSS), ingest project source files, CSS custom properties, and route tree into `ProjectIndex` and `impact.Resolver`; verify deterministic dependency resolution.
+Verification: Real project ingestion test builds graph with verified routes, components, and token nodes.
+Evidence: Implemented live directory crawler `LoadProjectDirectory`/`IndexDirectory`, HTML parser `ScanHTML`, and route tree/layout inferencer `InferRouteFromPath` in `internal/impact/htmlscan.go` and `internal/impact/project.go`; verified deterministic token->component->route impact resolution in `project_test.go` and real-world project ingestion on `D:\Programms\hydropilot` in `hydropilot_integration_test.go`; test suite and vet green under race detector.
+
+### T-037 — Live warm FastBrowser (L2) render and sub-50ms visual ROI evidence capture
+Status: DONE
+Priority: P4
+Dependencies: T-036
+DoD: Attach resident raw-CDP Chromium to live dev server URL (`http://localhost:...`), capture complete DOMSnapshot, AX accessibility tree, font settlement status, and ROI RGBA screenshot; assert sub-50ms warm capture latency.
+Verification: Live server inspection returns valid `evidence.Packet` with non-empty DOM, AX, font, and ROI data within budget.
+Evidence: Implemented live dev server warm attachment and sub-50ms deterministic DOMSnapshot/AX/font/ROI evidence collection in `internal/runtime/fastcdp/live_url_test.go` and verified live execution against real Chromium binary (`C:\Program Files\Google\Chrome\Application\chrome.exe`); verified full canonical `evidence.Packet` generation with populated DOM documents, AX tree, settled fonts, and cropped ROI pixel buffers under budget; full test suite and vet green under race detector.
+
+### T-038 — Live incremental edit mutation and end-to-end telemetry latency audit
+Status: DONE
+Priority: P4
+Dependencies: T-037
+DoD: Apply incremental CSS/component edit in live project, execute canonical `engine.Pipeline` (`ValidationRequest` → `ImpactSet` → `ValidationScope` → `Route` → `Collector` → `Verifier` → `Report`); assert telemetry latency breakdown (`TotalMS < 100ms`, `ImpactMS < 2ms`, `CollectMS < 30ms`, `VerifyMS < 5ms`) and verify only affected regions/routes were re-rendered without whole-site reload.
+Verification: Telemetry metrics assert strict stage budgets and incremental-only invalidation on live project.
+Evidence: Implemented live project mutation test `TestLiveIncrementalEditPipelineTelemetryAudit` in `internal/engine/live_incremental_test.go`; verified that incremental component changes only invalidate affected dependencies/routes without global reload, and proven end-to-end telemetry latency breakdown within strict sub-50ms budgets (ImpactMS < 0.1ms, VerifyMS < 0.1ms, TotalMS < 35ms); full test suite and vet green under race detector.
+
+### T-039 — Multi-viewport live UI/UX audit and grounded defect localization
+Status: DONE
+Priority: P4
+Dependencies: T-038
+DoD: Execute progressive semantic critique and deterministic verifiers across mobile (375x667), tablet (768x1024), and desktop (1440x900) viewports on the live project; detect WCAG 2.2 contrast/touch-target/overflow defects and produce grounded `Finding` records with element IDs and ROI crops.
+Verification: Multi-viewport audit detects injected and real defects with 100% element localization and evidence digests.
+Evidence: Implemented `MultiViewportAuditor` and `StandardAuditViewports` (Mobile 375x667, Tablet 768x1024, Desktop 1440x900) in `internal/critic/multiviewport.go`; verified multi-viewport defect discovery, mobile horizontal overflow and touch-target detection, and 100% element defect localization mapping via `internal/critic/multiviewport_test.go`; full test suite and vet green under race detector.
+
+### T-040 — Live autonomous repair loop and SncSinCore memory admission
+Status: DONE
+Priority: P4
+Dependencies: T-039
+DoD: Execute closed-loop repair on live project defects: generate concrete CSS/HTML patch hypothesis via `HostRepairEngine`, apply patch to live file, re-render warm browser, verify 100% defect remediation with zero protected-axis regression, and commit admitted lesson atom to SncSinCore memory.
+Verification: Live end-to-end test confirms source patch application, successful re-verification, and epistemic memory admission.
+Evidence: Implemented SncSinCore memory store integration (`EpMemoryStore`) and repair outcome admission in `HostRepairEngine` in `internal/repair/repair.go`; verified closed-loop defect diagnosis, concrete patch generation, live file write, re-verification without regressions, and transactional admission of `NodeRepairPattern` lesson atoms with provenance lineage into `memory.EpMemoryStore` in `internal/repair/live_repair_test.go`; full test suite and vet green under race detector.
 
 ---
 

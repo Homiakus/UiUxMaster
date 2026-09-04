@@ -63,6 +63,8 @@ UiUxMaster targets the official Tier-1 Go SDK and MCP specification `2026-07-28`
 
 ## Status
 
-Early foundation. The first milestone establishes the domain model, evidence contracts, deterministic critique engine and MCP skeleton before browser/VLM adapters are added.
+Functional alpha of the execution and control substrate. The repository includes a native incremental frontend impact graph and resolver, fidelity risk routing, in-process WGGo RGBA rendering, resident raw-CDP Chromium runtime with bounded warm page pool, deterministic layout/accessibility verifiers, in-memory visual diff primitives, isolated Axiom workflow slice, and MCP server baseline.
+
+Current focus is converging these subsystems into one measured canonical validation pipeline, followed by Playwright TruthPath calibration.
 
 See [MASTER_PLAN.md](MASTER_PLAN.md) and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).

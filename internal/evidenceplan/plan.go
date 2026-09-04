@@ -26,38 +26,70 @@ type Signals struct {
 }
 
 type Plan struct {
-	Structural bool
-	Diagnostics bool
-	Accessibility bool
-	Fonts bool
-	Pixels bool
-	BrowserTruth bool
-	Reasons []string
+	Structural    bool               `json:"structural"`
+	Diagnostics   bool               `json:"diagnostics"`
+	Accessibility bool               `json:"accessibility"`
+	Fonts         bool               `json:"fonts"`
+	Pixels        bool               `json:"pixels"`
+	BrowserTruth  bool               `json:"browser_truth"`
+	Region        *Region            `json:"region,omitempty"`
+	Reasons       []string           `json:"reasons,omitempty"`
 }
 
 // Build returns the cheapest evidence shape that can satisfy the requested
 // validation intent. FinalGate always promotes to full non-pixel deterministic
 // evidence before a clean result can be considered releasable.
 func Build(s Signals) Plan {
-	p:=Plan{Structural:true,Diagnostics:true,BrowserTruth:true}
-	intent:=s.Intent;if intent==""{intent=IntentQuickStructural}
-	if s.FinalGate { intent=IntentFullDeterministic; p.Reasons=append(p.Reasons,"final gate requires complete deterministic browser evidence") }
+	p := Plan{Structural: true, Diagnostics: true, BrowserTruth: true}
+	if s.Region != nil {
+		p.Region = s.Region
+	}
+	intent := s.Intent
+	if intent == "" {
+		intent = IntentQuickStructural
+	}
+	if s.FinalGate {
+		intent = IntentFullDeterministic
+		p.Reasons = append(p.Reasons, "final gate requires complete deterministic browser evidence")
+	}
 	switch intent {
 	case IntentInteraction:
-		p.Accessibility=true;p.Reasons=append(p.Reasons,"interaction intent requires accessibility correlation")
+		p.Accessibility = true
+		p.Reasons = append(p.Reasons, "interaction intent requires accessibility correlation")
 	case IntentTypography:
-		p.Accessibility=true;p.Fonts=true;p.Reasons=append(p.Reasons,"typography intent requires accessibility and settled font evidence")
+		p.Accessibility = true
+		p.Fonts = true
+		p.Reasons = append(p.Reasons, "typography intent requires accessibility and settled font evidence")
 	case IntentFullDeterministic:
-		p.Accessibility=true;p.Fonts=true;p.Reasons=append(p.Reasons,"full deterministic intent covers structure, runtime, accessibility and fonts")
+		p.Accessibility = true
+		p.Fonts = true
+		p.Reasons = append(p.Reasons, "full deterministic intent covers structure, runtime, accessibility and fonts")
 	case IntentVisualRegion:
-		p.Accessibility=true;p.Fonts=true;p.Pixels=true;p.Reasons=append(p.Reasons,"visual region intent requires localized pixels after deterministic evidence")
+		p.Accessibility = true
+		p.Fonts = true
+		p.Pixels = true
+		p.Reasons = append(p.Reasons, "visual region intent requires localized pixels after deterministic evidence")
 	default:
-		p.Reasons=append(p.Reasons,"quick structural intent avoids optional pull evidence")
+		p.Reasons = append(p.Reasons, "quick structural intent avoids optional pull evidence")
 	}
-	if s.SemanticsChanged||s.InteractionChanged { p.Accessibility=true;p.Reasons=append(p.Reasons,"semantic or interaction change promotes accessibility evidence") }
-	if s.CustomFontsChanged { p.Fonts=true;p.Reasons=append(p.Reasons,"custom font change promotes font-state evidence") }
-	if s.RuntimeChanged { p.Diagnostics=true }
-	if s.Risk==fidelity.RiskHigh { p.Accessibility=true;p.Reasons=append(p.Reasons,"high fidelity risk promotes browser-semantic evidence") }
-	if s.Region!=nil { p.Pixels=true;p.Reasons=append(p.Reasons,"explicit visual region requests localized pixel evidence") }
+	if s.SemanticsChanged || s.InteractionChanged {
+		p.Accessibility = true
+		p.Reasons = append(p.Reasons, "semantic or interaction change promotes accessibility evidence")
+	}
+	if s.CustomFontsChanged {
+		p.Fonts = true
+		p.Reasons = append(p.Reasons, "custom font change promotes font-state evidence")
+	}
+	if s.RuntimeChanged {
+		p.Diagnostics = true
+	}
+	if s.Risk == fidelity.RiskHigh {
+		p.Accessibility = true
+		p.Reasons = append(p.Reasons, "high fidelity risk promotes browser-semantic evidence")
+	}
+	if s.Region != nil {
+		p.Pixels = true
+		p.Reasons = append(p.Reasons, "explicit visual region requests localized pixel evidence")
+	}
 	return p
 }

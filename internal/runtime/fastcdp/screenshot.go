@@ -110,11 +110,15 @@ func (c *Connection) CaptureRegionRGBA(ctx context.Context, sessionID string, op
 	}
 
 	rgba := toRGBA(decoded)
+	total := time.Since(started)
+	if total <= 0 {
+		total = time.Nanosecond
+	}
 	return rgba, CaptureStats{
 		EncodedBytes: len(encoded),
 		Base64Decode: base64Duration,
 		ImageDecode:  imageDuration,
-		Total:        time.Since(started),
+		Total:        total,
 	}, nil
 }
 

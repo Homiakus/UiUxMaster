@@ -109,6 +109,19 @@ func (b *EpochBridge) Close() {
 	})
 }
 
+// IsClosed reports whether the epoch bridge has been terminated.
+func (b *EpochBridge) IsClosed() bool {
+	if b == nil {
+		return true
+	}
+	select {
+	case <-b.done:
+		return true
+	default:
+		return false
+	}
+}
+
 func epochBridgeScript(binding string) string {
 	bindingJSON, _ := json.Marshal(binding)
 	helperJSON, _ := json.Marshal(EpochSignalHelper)

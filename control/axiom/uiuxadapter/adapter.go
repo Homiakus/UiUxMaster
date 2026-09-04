@@ -21,11 +21,16 @@ type Collector interface {
 
 type Adapter struct {
 	Collector Collector
+	Pipeline  *engine.Pipeline
 	Policy    verifier.Policy
 }
 
 func New(collector Collector) *Adapter {
 	return &Adapter{Collector: collector, Policy: verifier.DefaultPolicy()}
+}
+
+func NewPipelineAdapter(pipeline *engine.Pipeline) *Adapter {
+	return &Adapter{Pipeline: pipeline, Policy: verifier.DefaultPolicy()}
 }
 
 func (a *Adapter) PlanEvidence(_ context.Context, change controlplane.Change) (controlplane.EvidencePlan, error) {
@@ -35,13 +40,28 @@ func (a *Adapter) PlanEvidence(_ context.Context, change controlplane.Change) (c
 
 func (a *Adapter) CollectVerify(ctx context.Context, change controlplane.Change, requested controlplane.EvidencePlan) (controlplane.ValidationResult, error) {
 	plan := toPlan(requested)
-	packet, err := a.Collector.Collect(ctx, change, plan)
-	if err != nil {
-		return controlplane.ValidationResult{}, err
+
+	var packet evidence.Packet
+	var report engine.Report
+
+	if a.Pipeline != nil {
+		req := toValidationRequest(change, requested)
+		res, err := a.Pipeline.Execute(ctx, req)
+		if err != nil {
+			return controlplane.ValidationResult{}, err
+		}
+		packet = res.Packet
+		report = res.Report
+	} else if a.Collector != nil {
+		var err error
+		packet, err = a.Collector.Collect(ctx, change, plan)
+		if err != nil {
+			return controlplane.ValidationResult{}, err
+		}
+		policy := a.Policy
+		verifier.ApplyDeterministic(&packet, policy)
+		report = engine.EvaluateForPlan(packet, plan)
 	}
-	policy := a.Policy
-	verifier.ApplyDeterministic(&packet, policy)
-	report := engine.EvaluateForPlan(packet, plan)
 
 	diagnosticsComplete := packet.Diagnostics != nil && packet.Diagnostics.Complete
 	return controlplane.ValidationResult{
@@ -134,3 +154,28 @@ func missingOnlyPixels(missing []string) bool {
 	}
 	return true
 }
+
+func toValidationRequest(change controlplane.Change, requested controlplane.EvidencePlan) engine.ValidationRequest {
+	req := engine.ValidationRequest{
+		RunID:     "axiom-pipeline-run",
+		Intent:    evidenceplan.Intent(change.Intent),
+		FinalGate: change.FinalGate,
+		Need: engine.EvidenceNeed{
+			Geometry:   requested.Structural,
+			Styles:     requested.Fonts,
+			Pixels:     requested.Pixels,
+			CleanState: requested.BrowserTruth,
+		},
+	}
+	if change.Region != nil {
+		req.Region = &evidenceplan.Region{
+			X:      change.Region.X,
+			Y:      change.Region.Y,
+			Width:  change.Region.Width,
+			Height: change.Region.Height,
+			Scale:  change.Region.Scale,
+		}
+	}
+	return req
+}
+
