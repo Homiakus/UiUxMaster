@@ -160,16 +160,19 @@ func missingOnlyPixels(missing []string) bool {
 }
 
 // toValidationRequest is the single Axiom -> engine semantic projection.
-// It must remain lossless for all fields used by PlanScope and route selection.
-// requested EvidencePlan is intentionally not an argument: Axiom is not allowed
-// to narrow the canonical engine request or independently select an evidence tier.
+// It must remain lossless for all durable fields used by PlanScope and route
+// selection. requested EvidencePlan is intentionally not an argument: Axiom is
+// not allowed to narrow the canonical engine request or independently select an
+// evidence tier.
 func toValidationRequest(change controlplane.Change) engine.ValidationRequest {
 	need := engine.EvidenceNeed{
-		Geometry:   change.Need.Geometry,
-		Styles:     change.Need.Styles,
-		Pixels:     change.Need.Pixels,
-		Scenario:   change.Need.Scenario,
-		CleanState: change.Need.CleanState,
+		Geometry:     change.Need.Geometry,
+		Styles:       change.Need.Styles,
+		Pixels:       change.Need.Pixels,
+		Scenario:     change.Need.Scenario,
+		CleanState:   change.Need.CleanState,
+		CrossBrowser: change.Need.CrossBrowser,
+		Semantic:     change.Need.Semantic,
 	}
 
 	// Preserve behavior for durable runs written before ValidationNeed existed.
