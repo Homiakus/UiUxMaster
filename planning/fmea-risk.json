@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "status": "active",
+  "authority": {
+    "master_plan": "MASTER_PLAN.md",
+    "risk_register": "docs/FMEA_RISK_REGISTER.md",
+    "governance_adr": "docs/adr/0002-fmea-risk-governance.md",
+    "execution_overlay": "planning/FMEA_EXECUTION_PLAN.md",
+    "tracker_issue": 15
+  },
+  "maturity_states": [
+    "implemented",
+    "integrated",
+    "operationally_proven",
+    "release_gated"
+  ],
+  "release_policy": {
+    "critical_open_blocks_production_claim": true,
+    "closure_requires_independent_evidence": true,
+    "runtime_fidelity_risk_is_separate": true
+  },
+  "risks": [
+    {"id":"FMEA-001","issue":3,"severity":10,"occurrence":4,"detection":8,"rpn":320,"priority":"critical","status":"open","barrier":"verification_integrity","residual_target_rpn":20},
+    {"id":"FMEA-002","issue":4,"severity":10,"occurrence":6,"detection":7,"rpn":420,"priority":"critical","status":"open","barrier":"verification_integrity","residual_target_rpn":20},
+    {"id":"FMEA-003","issue":5,"severity":10,"occurrence":4,"detection":7,"rpn":280,"priority":"critical","status":"open","barrier":"verification_integrity","residual_target_rpn":20},
+    {"id":"FMEA-004","issue":6,"severity":9,"occurrence":5,"detection":8,"rpn":360,"priority":"critical","status":"open","barrier":"verification_integrity","residual_target_rpn":18},
+    {"id":"FMEA-005","issue":7,"severity":6,"occurrence":10,"detection":4,"rpn":240,"priority":"high","status":"open","barrier":"operational_correctness","residual_target_rpn":12},
+    {"id":"FMEA-006","issue":8,"severity":7,"occurrence":9,"detection":3,"rpn":189,"priority":"high","status":"open","barrier":"planning_delivery_trust","residual_target_rpn":28},
+    {"id":"FMEA-007","issue":9,"severity":9,"occurrence":3,"detection":7,"rpn":189,"priority":"high","status":"open","barrier":"operational_correctness","residual_target_rpn":18},
+    {"id":"FMEA-008","issue":10,"severity":9,"occurrence":4,"detection":7,"rpn":252,"priority":"critical","status":"open","barrier":"verification_integrity","residual_target_rpn":18},
+    {"id":"FMEA-009","issue":11,"severity":9,"occurrence":5,"detection":7,"rpn":315,"priority":"critical","status":"open","barrier":"verification_integrity","residual_target_rpn":54},
+    {"id":"FMEA-010","issue":12,"severity":10,"occurrence":2,"detection":8,"rpn":160,"priority":"high","status":"open","barrier":"operational_correctness","residual_target_rpn":30},
+    {"id":"FMEA-011","issue":13,"severity":8,"occurrence":4,"detection":4,"rpn":128,"priority":"high","status":"open","barrier":"planning_delivery_trust","residual_target_rpn":16},
+    {"id":"FMEA-012","issue":14,"severity":7,"occurrence":5,"detection":5,"rpn":175,"priority":"high","status":"open","barrier":"operational_correctness","residual_target_rpn":14}
+  ],
+  "execution_order": [
+    "FMEA-002",
+    "FMEA-004",
+    "FMEA-001",
+    "FMEA-009",
+    "FMEA-003",
+    "FMEA-008",
+    "FMEA-005",
+    "FMEA-007",
+    "FMEA-012",
+    "FMEA-010",
+    "FMEA-006",
+    "FMEA-011"
+  ]
+}
