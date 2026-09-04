@@ -31,8 +31,15 @@ jobs:
           cache: true
           cache-dependency-path: control/axiom/go.mod
 
-      - name: Download pinned modules
-        run: go mod download
+      - name: Canonicalize nested module
+        run: go mod tidy
+
+      - name: Upload canonical module lock
+        uses: actions/upload-artifact@v4
+        with:
+          name: axiom-control-module-lock
+          path: control/axiom/go.sum
+          if-no-files-found: error
 
       - name: Verify Axiom isolation
         run: |
