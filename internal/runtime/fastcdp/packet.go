@@ -37,13 +37,13 @@ func DefaultSnapshotOptions() SnapshotOptions {
 }
 
 type PacketOptions struct {
-	RunID        string
-	Scenario     string
-	URL          string
-	Viewport     evidence.Viewport
-	Browser      BrowserVersion
-	FidelityID   string
-	Region       *CaptureRegionOptions
+	RunID      string
+	Scenario   string
+	URL        string
+	Viewport   evidence.Viewport
+	Browser    BrowserVersion
+	FidelityID string
+	Region     *CaptureRegionOptions
 }
 
 // ToPacket converts one stable CollectedEvidence result into the repository's
@@ -140,6 +140,7 @@ func projectSnapshotIntoPacket(packet *evidence.Packet, snapshot Snapshot) {
 					Width: node.Bounds.Width, Height: node.Bounds.Height,
 				},
 				Visible:    visuallyVisible(node.Bounds, styles),
+				Clickable:  node.Clickable,
 				Styles:     styles,
 				Attributes: attrs,
 				ParentID:   idByNodeIndex[node.ParentIndex],
