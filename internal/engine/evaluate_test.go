@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/Homiakus/UiUxMaster/internal/evidence"
+	"github.com/Homiakus/UiUxMaster/internal/evidenceplan"
 )
 
 func TestEvaluateRequestsCheapEvidenceBeforePixels(t *testing.T) {
@@ -11,6 +12,25 @@ func TestEvaluateRequestsCheapEvidenceBeforePixels(t *testing.T) {
 	if len(report.MissingEvidence)!=2{t.Fatalf("expected accessibility + structural evidence only, got %v",report.MissingEvidence)}
 	for _,missing:=range report.MissingEvidence{if missing=="rendered screenshot"||missing=="rendered region pixels"{t.Fatalf("clean structural path must not demand pixels: %v",report.MissingEvidence)}}
 	if report.RecommendedNext!="collect the cheapest missing deterministic evidence before escalating fidelity"{t.Fatalf("unexpected next step: %q",report.RecommendedNext)}
+}
+
+func TestEvaluateForQuickStructuralDoesNotRequireAXOrFonts(t *testing.T) {
+	packet:=evidence.Packet{
+		Renderer:evidence.RendererRef{Tier:"L2"},
+		Elements:[]evidence.ElementRef{{ID:"main",Tag:"main",Visible:true}},
+		Diagnostics:&evidence.DiagnosticsEvidence{Complete:true},
+	}
+	report:=EvaluateForPlan(packet,evidenceplan.Build(evidenceplan.Signals{Intent:evidenceplan.IntentQuickStructural}))
+	if len(report.MissingEvidence)!=0{t.Fatalf("quick structural unexpectedly requires optional evidence: %v",report.MissingEvidence)}
+}
+
+func TestEvaluateForTypographyRequiresAXFontsAndDiagnostics(t *testing.T) {
+	packet:=evidence.Packet{Renderer:evidence.RendererRef{Tier:"L2"},Elements:[]evidence.ElementRef{{ID:"body",Tag:"body",Visible:true}}}
+	plan:=evidenceplan.Build(evidenceplan.Signals{Intent:evidenceplan.IntentTypography})
+	report:=EvaluateForPlan(packet,plan)
+	want:=map[string]bool{"accessibility snapshot":true,"font state":true,"runtime diagnostics":true}
+	if len(report.MissingEvidence)!=3{t.Fatalf("missing = %v",report.MissingEvidence)}
+	for _,item:=range report.MissingEvidence{if !want[item]{t.Fatalf("unexpected missing evidence %q in %v",item,report.MissingEvidence)}}
 }
 
 func TestEvaluateCleanDeterministicPacketDoesNotRequireScreenshot(t *testing.T) {
