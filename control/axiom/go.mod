@@ -2,7 +2,10 @@ module github.com/Homiakus/UiUxMaster/control/axiom
 
 go 1.26.4
 
-require github.com/Homiakus/axiom v0.0.0-20260902054936-44cea54c5cea
+require (
+	github.com/Homiakus/UiUxMaster v0.0.0
+	github.com/Homiakus/axiom v0.0.0-20260902054936-44cea54c5cea
+)
 
 require (
 	github.com/DataDog/zstd v1.4.5 // indirect
@@ -33,3 +36,5 @@ require (
 	golang.org/x/text v0.14.0 // indirect
 	google.golang.org/protobuf v1.33.0 // indirect
 )
+
+replace github.com/Homiakus/UiUxMaster => ../..
