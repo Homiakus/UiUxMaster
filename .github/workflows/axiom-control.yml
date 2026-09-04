@@ -5,10 +5,20 @@ on:
     branches: [main]
     paths:
       - 'control/axiom/**'
+      - 'internal/runtime/fastcdp/**'
+      - 'internal/evidence/**'
+      - 'internal/evidenceplan/**'
+      - 'internal/engine/**'
+      - 'internal/verifier/**'
       - '.github/workflows/axiom-control.yml'
   pull_request:
     paths:
       - 'control/axiom/**'
+      - 'internal/runtime/fastcdp/**'
+      - 'internal/evidence/**'
+      - 'internal/evidenceplan/**'
+      - 'internal/engine/**'
+      - 'internal/verifier/**'
       - '.github/workflows/axiom-control.yml'
 
 permissions:
@@ -52,3 +62,19 @@ jobs:
 
       - name: Vet
         run: go vet ./...
+
+      - name: Locate Chromium
+        shell: bash
+        run: |
+          CHROME="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || command -v chrome-headless-shell || true)"
+          if [ -z "$CHROME" ]; then
+            echo "::error::No Chromium-family browser is installed on the runner"
+            exit 1
+          fi
+          echo "UIUX_CHROME_BIN=$CHROME" >> "$GITHUB_ENV"
+          "$CHROME" --version
+
+      - name: Axiom FastCDP end-to-end
+        env:
+          UIUX_AXIOM_FASTCDP_INTEGRATION: '1'
+        run: go test ./uiuxadapter -run '^TestAxiomFastCDPEndToEndIntegration$' -count=1 -v
