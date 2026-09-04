@@ -95,7 +95,7 @@ func (c *FastCDPCollector) Collect(ctx context.Context, change controlplane.Chan
 
 	req := fastcdp.RequestFromPlan(plan, fastcdp.PlannedRequestOptions{
 		RequireAfter:       state.Epoch,
-		WaitForNewEpoch:    c.config.WaitForNewEpoch && state.Initialized,
+		WaitForNewEpoch:    c.config.WaitForNewEpoch,
 		DiagnosticsSince:   diagnosticMark,
 		MaxEpochRetries:    c.config.MaxEpochRetries,
 	})
