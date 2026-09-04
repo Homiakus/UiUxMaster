@@ -15,8 +15,9 @@ type Rect struct {
 }
 
 // SnapshotNode is the compact verifier-oriented projection of a CDP
-// DOMSnapshot layout node. BackendNodeID is stable enough to address the node
-// through other DOM-domain commands within the resident document lifetime.
+// DOMSnapshot layout node. ParentIndex points to the nearest projected element
+// ancestor, not necessarily the immediate DOM parent. This preserves geometry
+// ancestry across non-layout nodes such as display:contents wrappers.
 type SnapshotNode struct {
 	DocumentIndex int
 	NodeIndex     int
@@ -32,8 +33,6 @@ type SnapshotNode struct {
 	Clickable     bool
 }
 
-// DocumentSnapshot contains only fields needed by impact correlation and
-// deterministic geometry/style verifiers.
 type DocumentSnapshot struct {
 	FrameID       string
 	DocumentURL   string
@@ -96,9 +95,6 @@ type captureLayout struct {
 	Text      []int       `json:"text"`
 }
 
-// CaptureSnapshot calls DOMSnapshot.captureSnapshot with a strict computed-style
-// whitelist and projects the protocol's columnar tables into verifier-friendly
-// nodes. Full raw DOM/CSS state is deliberately not retained.
 func (c *Connection) CaptureSnapshot(ctx context.Context, sessionID string, options SnapshotOptions) (Snapshot, error) {
 	styles := normalizeStyleWhitelist(options.ComputedStyles)
 	params := captureSnapshotParams{
@@ -117,6 +113,12 @@ func projectSnapshot(raw captureSnapshotResult, styleNames []string) (Snapshot, 
 	out := Snapshot{ComputedStyles: append([]string(nil), styleNames...), Documents: make([]DocumentSnapshot, 0, len(raw.Documents))}
 	for documentIndex, doc := range raw.Documents {
 		clickable := indexSet(doc.Nodes.IsClickable.Index)
+		projectedElements := make(map[int]struct{}, len(doc.Layout.NodeIndex))
+		for _, nodeIndex := range doc.Layout.NodeIndex {
+			if intAt(doc.Nodes.NodeType, nodeIndex, 0) == 1 {
+				projectedElements[nodeIndex] = struct{}{}
+			}
+		}
 		projected := DocumentSnapshot{
 			FrameID:       stringAt(raw.Strings, doc.FrameID),
 			DocumentURL:   stringAt(raw.Strings, doc.DocumentURL),
@@ -135,7 +137,7 @@ func projectSnapshot(raw captureSnapshotResult, styleNames []string) (Snapshot, 
 			node := SnapshotNode{
 				DocumentIndex: documentIndex,
 				NodeIndex:     nodeIndex,
-				ParentIndex:   intAt(doc.Nodes.ParentIndex, nodeIndex, -1),
+				ParentIndex:   nearestProjectedElementParent(doc.Nodes.ParentIndex, nodeIndex, projectedElements),
 				NodeType:      intAt(doc.Nodes.NodeType, nodeIndex, 0),
 				BackendNodeID: int64At(doc.Nodes.BackendNodeID, nodeIndex, 0),
 				Name:          stringAt(raw.Strings, intAt(doc.Nodes.NodeName, nodeIndex, -1)),
@@ -159,6 +161,21 @@ func projectSnapshot(raw captureSnapshotResult, styleNames []string) (Snapshot, 
 		out.Documents = append(out.Documents, projected)
 	}
 	return out, nil
+}
+
+func nearestProjectedElementParent(parentIndexes []int, nodeIndex int, projected map[int]struct{}) int {
+	parent := intAt(parentIndexes, nodeIndex, -1)
+	for steps := 0; parent >= 0 && steps <= len(parentIndexes); steps++ {
+		if _, ok := projected[parent]; ok {
+			return parent
+		}
+		next := intAt(parentIndexes, parent, -1)
+		if next == parent {
+			return -1
+		}
+		parent = next
+	}
+	return -1
 }
 
 func projectAttributes(stringsTable []string, indexes []int) map[string]string {
