@@ -42,7 +42,10 @@ func TestStartAndRunCompletesAndProjectsHistory(t *testing.T) {
 		t.Fatal("empty plan digest")
 	}
 
-	run, err := runner.StartAndRun(context.Background(), "run-1", Change{Intent: "quick_structural"}, Budget{MaxBrowserFetches: 1})
+	// The pinned Axiom version treats MaxBrowserFetches as an exclusive
+	// admission ceiling (usage >= limit is exhausted), so ordinary successful
+	// runs keep explicit headroom instead of testing behavior at the boundary.
+	run, err := runner.StartAndRun(context.Background(), "run-1", Change{Intent: "quick_structural"}, Budget{MaxBrowserFetches: 4})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -113,6 +116,8 @@ func TestPixelEscalationIsAccountedAgainstBrowserBudget(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Pixel collection is charged as a second browser fetch. A ceiling of one
+	// deliberately forces Axiom to stop the run before the decision activity.
 	run, err := runner.StartAndRun(context.Background(), "budgeted", Change{Intent: "visual_region"}, Budget{MaxBrowserFetches: 1})
 	if err != nil && run.Status == "" {
 		t.Fatal(err)
