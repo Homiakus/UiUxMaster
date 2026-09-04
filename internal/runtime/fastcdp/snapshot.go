@@ -29,6 +29,7 @@ type SnapshotNode struct {
 	Bounds        Rect
 	Styles        map[string]string
 	Attributes    map[string]string
+	Clickable     bool
 }
 
 // DocumentSnapshot contains only fields needed by impact correlation and
@@ -74,13 +75,18 @@ type captureDocument struct {
 	Layout        captureLayout    `json:"layout"`
 }
 
+type rareBooleanData struct {
+	Index []int `json:"index"`
+}
+
 type captureNodeTable struct {
-	ParentIndex   []int   `json:"parentIndex"`
-	NodeType      []int   `json:"nodeType"`
-	NodeName      []int   `json:"nodeName"`
-	NodeValue     []int   `json:"nodeValue"`
-	BackendNodeID []int64 `json:"backendNodeId"`
-	Attributes    [][]int `json:"attributes"`
+	ParentIndex   []int           `json:"parentIndex"`
+	NodeType      []int           `json:"nodeType"`
+	NodeName      []int           `json:"nodeName"`
+	NodeValue     []int           `json:"nodeValue"`
+	BackendNodeID []int64         `json:"backendNodeId"`
+	Attributes    [][]int         `json:"attributes"`
+	IsClickable   rareBooleanData `json:"isClickable"`
 }
 
 type captureLayout struct {
@@ -110,6 +116,7 @@ func (c *Connection) CaptureSnapshot(ctx context.Context, sessionID string, opti
 func projectSnapshot(raw captureSnapshotResult, styleNames []string) (Snapshot, error) {
 	out := Snapshot{ComputedStyles: append([]string(nil), styleNames...), Documents: make([]DocumentSnapshot, 0, len(raw.Documents))}
 	for documentIndex, doc := range raw.Documents {
+		clickable := indexSet(doc.Nodes.IsClickable.Index)
 		projected := DocumentSnapshot{
 			FrameID:       stringAt(raw.Strings, doc.FrameID),
 			DocumentURL:   stringAt(raw.Strings, doc.DocumentURL),
@@ -136,6 +143,7 @@ func projectSnapshot(raw captureSnapshotResult, styleNames []string) (Snapshot, 
 				Text:          stringAt(raw.Strings, intAt(doc.Layout.Text, layoutIndex, -1)),
 				Bounds:        bounds,
 				Attributes:    projectAttributes(raw.Strings, intSliceAt(doc.Nodes.Attributes, nodeIndex)),
+				Clickable:     clickable[nodeIndex],
 			}
 			if len(styleNames) > 0 {
 				node.Styles = make(map[string]string, len(styleNames))
@@ -168,6 +176,19 @@ func projectAttributes(stringsTable []string, indexes []int) map[string]string {
 		return nil
 	}
 	return attrs
+}
+
+func indexSet(indexes []int) map[int]bool {
+	if len(indexes) == 0 {
+		return nil
+	}
+	out := make(map[int]bool, len(indexes))
+	for _, index := range indexes {
+		if index >= 0 {
+			out[index] = true
+		}
+	}
+	return out
 }
 
 func normalizeStyleWhitelist(styles []string) []string {
