@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -57,9 +58,10 @@ type DiagnosticsObserver struct {
 	session  string
 	capacity int
 
-	seq atomic.Uint64
-	mu  sync.RWMutex
-	ring []DiagnosticEvent
+	seq            atomic.Uint64
+	evictedThrough atomic.Uint64
+	mu             sync.RWMutex
+	ring           []DiagnosticEvent
 
 	subs []diagnosticSubscription
 	stop chan struct{}
@@ -117,6 +119,7 @@ func (o *DiagnosticsObserver) append(event DiagnosticEvent) {
 	if len(o.ring) < o.capacity {
 		o.ring = append(o.ring, event)
 	} else {
+		o.evictedThrough.Store(o.ring[0].Sequence)
 		copy(o.ring, o.ring[1:])
 		o.ring[len(o.ring)-1] = event
 	}
@@ -148,12 +151,17 @@ func (o *DiagnosticsObserver) SnapshotSince(mark DiagnosticMark) DiagnosticSnaps
 	o.mu.RUnlock()
 
 	result := DiagnosticSnapshot{Events: out, Complete: true}
+	if mark.Sequence < o.evictedThrough.Load() {
+		result.Complete = false
+		result.DroppedMethods = append(result.DroppedMethods, "observer.ring")
+	}
 	for _, item := range o.subs {
 		if item.sub.Dropped() > mark.Dropped[item.method] {
 			result.Complete = false
 			result.DroppedMethods = append(result.DroppedMethods, item.method)
 		}
 	}
+	sort.Strings(result.DroppedMethods)
 	return result
 }
 
