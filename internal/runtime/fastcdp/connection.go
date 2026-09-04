@@ -57,8 +57,32 @@ type callResult struct {
 }
 
 type subscriber struct {
-	id uint64
-	ch chan Event
+	id      uint64
+	ch      chan Event
+	dropped atomic.Uint64
+}
+
+// EventSubscription is a bounded non-blocking subscription. Dropped reports
+// events that could not be delivered because the consumer was slower than the
+// CDP producer. Correctness-sensitive collectors must treat a changed drop
+// count as incomplete evidence rather than silently passing validation.
+type EventSubscription struct {
+	Events <-chan Event
+	sub    *subscriber
+	cancel func()
+}
+
+func (s *EventSubscription) Dropped() uint64 {
+	if s == nil || s.sub == nil {
+		return 0
+	}
+	return s.sub.dropped.Load()
+}
+
+func (s *EventSubscription) Close() {
+	if s != nil && s.cancel != nil {
+		s.cancel()
+	}
 }
 
 // Connection multiplexes concurrent commands and asynchronous events over one
@@ -73,7 +97,7 @@ type Connection struct {
 	pending map[int64]chan callResult
 
 	eventsMu sync.RWMutex
-	events   map[string]map[uint64]chan Event
+	events   map[string]map[uint64]*subscriber
 
 	closeOnce sync.Once
 	closed    chan struct{}
@@ -86,7 +110,7 @@ func NewConnection(transport Transport) *Connection {
 	c := &Connection{
 		transport: transport,
 		pending:   make(map[int64]chan callResult),
-		events:    make(map[string]map[uint64]chan Event),
+		events:    make(map[string]map[uint64]*subscriber),
 		closed:    make(chan struct{}),
 	}
 	go c.readLoop()
@@ -165,20 +189,27 @@ func (c *Connection) Call(ctx context.Context, sessionID, method string, params 
 	}
 }
 
-// Subscribe registers a bounded, non-blocking event subscriber. Slow consumers
-// cannot stall the CDP read loop; if the buffer is full, the newest event is
-// dropped and callers should rely on explicit state/epoch checks before PASS.
+// Subscribe registers a bounded, non-blocking event subscriber. It preserves
+// the original lightweight API; correctness-sensitive code should prefer
+// SubscribeObserved so event loss can be detected.
 func (c *Connection) Subscribe(method string, buffer int) (<-chan Event, func()) {
+	sub := c.SubscribeObserved(method, buffer)
+	return sub.Events, sub.Close
+}
+
+// SubscribeObserved registers a bounded event subscriber and exposes a drop
+// counter. The CDP read loop never blocks on a slow consumer.
+func (c *Connection) SubscribeObserved(method string, buffer int) *EventSubscription {
 	if buffer < 1 {
 		buffer = 1
 	}
 	id := c.nextSubID.Add(1)
-	ch := make(chan Event, buffer)
+	sub := &subscriber{id: id, ch: make(chan Event, buffer)}
 	c.eventsMu.Lock()
 	if c.events[method] == nil {
-		c.events[method] = make(map[uint64]chan Event)
+		c.events[method] = make(map[uint64]*subscriber)
 	}
-	c.events[method][id] = ch
+	c.events[method][id] = sub
 	c.eventsMu.Unlock()
 
 	var once sync.Once
@@ -194,7 +225,7 @@ func (c *Connection) Subscribe(method string, buffer int) (<-chan Event, func())
 			c.eventsMu.Unlock()
 		})
 	}
-	return ch, cancel
+	return &EventSubscription{Events: sub.ch, sub: sub, cancel: cancel}
 }
 
 func (c *Connection) Close() error {
@@ -238,15 +269,16 @@ func (c *Connection) deliverResponse(msg wireMessage) {
 
 func (c *Connection) publish(event Event) {
 	c.eventsMu.RLock()
-	subscribers := make([]chan Event, 0, len(c.events[event.Method]))
-	for _, ch := range c.events[event.Method] {
-		subscribers = append(subscribers, ch)
+	subscribers := make([]*subscriber, 0, len(c.events[event.Method]))
+	for _, sub := range c.events[event.Method] {
+		subscribers = append(subscribers, sub)
 	}
 	c.eventsMu.RUnlock()
-	for _, ch := range subscribers {
+	for _, sub := range subscribers {
 		select {
-		case ch <- event:
+		case sub.ch <- event:
 		default:
+			sub.dropped.Add(1)
 		}
 	}
 }
