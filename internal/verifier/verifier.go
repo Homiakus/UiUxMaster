@@ -81,23 +81,34 @@ func Verify(packet evidence.Packet, policy Policy) Result {
 
 // Apply appends this suite's deterministic findings to the canonical packet.
 // Existing runtime evidence from console/network/accessibility collectors is
-// preserved. The resulting order is deterministic for stable downstream diffs.
+// preserved. Applying the same verifier twice is idempotent.
 func Apply(packet *evidence.Packet, policy Policy) Result {
 	if packet == nil {
 		return Result{}
 	}
 	result := Verify(*packet, policy)
-	packet.RuntimeIssues = append(packet.RuntimeIssues, result.Issues...)
+	seen := make(map[string]struct{}, len(packet.RuntimeIssues)+len(result.Issues))
+	for _, issue := range packet.RuntimeIssues {
+		seen[issueKey(issue)] = struct{}{}
+	}
+	for _, issue := range result.Issues {
+		key := issueKey(issue)
+		if _, exists := seen[key]; exists {
+			continue
+		}
+		seen[key] = struct{}{}
+		packet.RuntimeIssues = append(packet.RuntimeIssues, issue)
+	}
 	sortIssues(packet.RuntimeIssues)
 	return result
 }
 
 func normalizePolicy(policy Policy) Policy {
 	defaults := DefaultPolicy()
-	if policy.ViewportOverflowTolerance < 0 {
+	if policy.ViewportOverflowTolerance <= 0 {
 		policy.ViewportOverflowTolerance = defaults.ViewportOverflowTolerance
 	}
-	if policy.ClipTolerance < 0 {
+	if policy.ClipTolerance <= 0 {
 		policy.ClipTolerance = defaults.ClipTolerance
 	}
 	if policy.MinTargetWidth <= 0 {
@@ -316,6 +327,9 @@ func verifyStyleInvariants(elements []evidence.ElementRef, invariants []StyleInv
 }
 
 func isInteractive(element evidence.ElementRef) bool {
+	if element.Clickable {
+		return true
+	}
 	switch strings.ToLower(element.Role) {
 	case "button", "link", "checkbox", "radio", "slider", "spinbutton", "switch", "textbox", "combobox", "listbox", "menuitem", "option", "tab", "treeitem":
 		return true
@@ -410,7 +424,7 @@ func rectArea(rect evidence.Rect) float64 {
 func elementLabel(element evidence.ElementRef) string {
 	if element.Role != "" {
 		if element.Name != "" {
-			return element.Role + " " + strconvQuote(element.Name)
+			return element.Role + " " + quoteLabel(element.Name)
 		}
 		return element.Role
 	}
@@ -420,7 +434,7 @@ func elementLabel(element evidence.ElementRef) string {
 	return "element"
 }
 
-func strconvQuote(value string) string {
+func quoteLabel(value string) string {
 	value = strings.ReplaceAll(value, "\n", " ")
 	if len(value) > 80 {
 		value = value[:77] + "..."
@@ -437,6 +451,12 @@ func normalizedSet(values []string) map[string]bool {
 		out[strings.ToLower(strings.TrimSpace(value))] = true
 	}
 	return out
+}
+
+func issueKey(issue evidence.RuntimeIssue) string {
+	ids := append([]string(nil), issue.ElementIDs...)
+	sort.Strings(ids)
+	return issue.Code + "\x00" + strings.Join(ids, "\x00") + "\x00" + issue.Message
 }
 
 func sortIssues(issues []evidence.RuntimeIssue) {
