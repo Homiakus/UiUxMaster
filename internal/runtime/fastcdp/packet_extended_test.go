@@ -14,7 +14,7 @@ func TestToPacketProjectsAccessibilityFontsAndDiagnostics(t *testing.T) {
 		Fonts: &FontState{Status:"loaded",Total:1,Faces:[]FontFaceState{{Family:"Inter",Weight:"400",Status:"loaded"}}},
 		Diagnostics: &DiagnosticSnapshot{Complete:true,Events:[]DiagnosticEvent{{Kind:DiagnosticConsole,Level:"error",Message:"boom"}}},
 		Timing: EvidenceTiming{Accessibility:time.Millisecond,Fonts:2*time.Millisecond,Diagnostics:3*time.Millisecond,Total:4*time.Millisecond},
-	}, PacketOptions{Renderer: BrowserVersion{Product:"Chrome/152"}})
+	}, PacketOptions{Browser: BrowserVersion{Product:"Chrome/152"}})
 	if len(packet.Accessibility)!=1||packet.Accessibility[0].BackendNodeID!=42||packet.AriaSnapshot==""{t.Fatalf("accessibility = %#v snapshot=%q",packet.Accessibility,packet.AriaSnapshot)}
 	if packet.Fonts==nil||packet.Fonts.Status!="loaded"||len(packet.Fonts.Faces)!=1{t.Fatalf("fonts = %#v",packet.Fonts)}
 	if packet.Diagnostics==nil||!packet.Diagnostics.Complete{t.Fatalf("diagnostics = %#v",packet.Diagnostics)}
