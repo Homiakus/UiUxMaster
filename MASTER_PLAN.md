@@ -1,13 +1,79 @@
 # MASTER PLAN — UiUxMaster
 
-This is the single living execution plan for UiUxMaster. Do not create a competing roadmap.
+This is the **single living execution plan** for UiUxMaster. Do not create a competing roadmap.
+
+`MASTER_PLAN.md` is authoritative for naming, ownership, runtime tiers, phase status and execution order. Subordinate documents must be synchronized to it before they are used to justify architectural changes.
 
 Detailed subordinate specifications:
 
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — ownership and evidence architecture;
 - [`docs/ULTRA_FAST_VISUAL_LOOP.md`](docs/ULTRA_FAST_VISUAL_LOOP.md) — low-latency rendering/verification architecture;
 - [`docs/ECOSYSTEM_INTEGRATION_PROGRAM.md`](docs/ECOSYSTEM_INTEGRATION_PROGRAM.md) — Axiom/SncSinCore/SkillState/DeepSearch integration contracts and optional ecosystem reuse gates;
-- [`docs/RESEARCH_FOUNDATIONS.md`](docs/RESEARCH_FOUNDATIONS.md) — research → invariant traceability.
+- [`docs/RESEARCH_FOUNDATIONS.md`](docs/RESEARCH_FOUNDATIONS.md) — research → invariant traceability;
+- [`docs/adr/0001-runtime-and-ownership.md`](docs/adr/0001-runtime-and-ownership.md) — accepted runtime-tier and ownership decision.
+
+---
+
+# 0. Current implementation snapshot
+
+The repository has moved beyond foundation/prototyping. The current state is a **functional alpha of the execution/control substrate**.
+
+Implemented and exercised on `main`:
+
+```text
+Go 1.26.4
++ root test/race/vet CI
++ Chromium integration CI
++ native frontend impact graph/resolver
++ fidelity risk/capability model
++ renderer-neutral FastRender contract
++ WGGo RGBA renderer/ROI crop
++ resident raw-CDP Chromium runtime
++ warm bounded page pool
++ explicit render epoch
++ DOMSnapshot/AX/fonts/runtime diagnostics
++ ROI screenshot capture
++ canonical evidence.Packet projection
++ deterministic verifier suite
++ in-memory RGBA visual diff primitive
++ benchmark harnesses with p50/p95/p99
++ isolated Axiom control module
++ Axiom → FastCDP → verifier → engine vertical slice
++ durable runner restart/reopen test
++ thin MCP baseline
+```
+
+The main architectural gap is **integration**, not absence of primitives:
+
+```text
+source change
+→ ImpactSet
+→ validation scope/invalidation
+→ fidelity/risk routing
+→ WGGo or FastCDP
+→ deterministic verification
+→ canonical evidence
+→ Axiom/host/MCP
+```
+
+The pieces on both sides of this pipeline exist, but this full path is not yet the single canonical product execution path.
+
+The largest capability gaps after that are:
+
+1. Playwright TruthPath and FastPath/TruthPath calibration;
+2. Design Intelligence / semantic critic;
+3. relative candidate comparison and repair loop;
+4. SncSinCore memory;
+5. SkillState bounded reasoning/evolution;
+6. DeepSearch research adapter;
+7. full MCP product surface and adversarial evals.
+
+## Documentation debt that must not be ignored
+
+- `docs/ARCHITECTURE.md` currently uses an older conflicting L0–L4 evidence nomenclature. The tier names in this master plan are authoritative and the subordinate document must be updated.
+- `docs/ULTRA_FAST_VISUAL_LOOP.md` still describes `chromedp/cdproto` as an initially preferred implementation even though the current FastBrowser implementation is a custom raw-CDP transport. Driver choice remains provisional until comparative benchmarks are complete.
+- `README.md` still describes the project as an early foundation before browser adapters; that is no longer accurate.
+- open issues/checklists for FastPath and TruthPath must be synchronized with actual completion state rather than treated as the source of truth.
 
 ---
 
@@ -30,7 +96,7 @@ intent
 
 The final product is an MCP server with a stable tool/resource surface, while all core design, validation, orchestration, memory and rendering logic remains protocol-independent.
 
-The normal edit/polish loop must target **sub-second latency**. Common warm deterministic checks should target the **tens-of-milliseconds range** whenever the changed scope and fidelity requirements permit it.
+The normal edit/polish loop must target **sub-second latency**. Common warm deterministic checks should target the **tens-of-milliseconds range** whenever changed scope and fidelity requirements permit it.
 
 High-fidelity browser automation, deep research, durable orchestration and long-term memory must never become mandatory work on every local CSS/layout edit.
 
@@ -65,6 +131,8 @@ High-fidelity browser automation, deep research, durable orchestration and long-
 25. **Integration must earn its complexity.** Every external library requires a before/after benchmark or eval showing value.
 26. **UiUxMaster owns frontend impact semantics.** Source/component/token/runtime-region impact analysis is a UiUxMaster domain capability, not an AutoTraceLab responsibility.
 27. **Reuse algorithms, not accidental product coupling.** External graph implementations may be reused only behind local ports after semantic fit, benchmark and maintenance review.
+28. **Implemented primitive != integrated capability.** A checklist is complete only when the capability participates in the intended product path and has the required tests/measurements.
+29. **Master-plan terminology is canonical.** Subordinate documents may add detail but may not redefine L0–L4, ownership or phase semantics.
 
 ---
 
@@ -90,6 +158,9 @@ High-fidelity browser automation, deep research, durable orchestration and long-
                   source/component/token/runtime
                                  │
                                  ▼
+                    Invalidation / Scope Policy
+                                 │
+                                 ▼
                          Validation Router
                   scope + fidelity + confidence
                          + remaining budget
@@ -98,7 +169,7 @@ High-fidelity browser automation, deep research, durable orchestration and long-
               ▼                  ▼                   ▼
           L1 FastRender      L2 FastBrowser      L3 TruthPath
           WGGo / Go          resident Chromium  Playwright
-          in-process         direct CDP          clean/cross-browser
+          in-process         raw direct CDP      clean/cross-browser
               │                  │                   │
               └──────────────────┼───────────────────┘
                                  ▼
@@ -130,22 +201,25 @@ High-fidelity browser automation, deep research, durable orchestration and long-
                                    evolution gate
 ```
 
-The hottest path is deliberately short:
+The canonical hot path is:
 
 ```text
 change
 → native impact engine
+→ invalidation/scope
 → fidelity router
 → WGGo or resident CDP
 → deterministic verifier
-→ evidence packet
+→ evidence.Packet
 ```
 
 Axiom durable workflows, SncSinCore retrieval, SkillState evolution, DeepSearch and full Playwright are invoked only when their capability is required.
 
 ---
 
-# 4. Runtime evidence tiers
+# 4. Runtime evidence tiers — canonical naming
+
+These names are authoritative throughout the project.
 
 ## L0 — Static/source preflight
 
@@ -153,7 +227,7 @@ Use for:
 
 - changed-file/module/token detection;
 - source dependency graph updates;
-- unsupported feature detection;
+- unsupported-feature detection;
 - component ownership mapping;
 - obvious static violations;
 - validation-scope calculation.
@@ -162,37 +236,44 @@ Target: microseconds to low milliseconds.
 
 ## L1 — WGGo FastRender
 
-Candidate implementation: WGGo / `go-webengine/engine`-class pure-Go renderer.
+Current implementation: `internal/runtime/wggo` over `go-webengine/engine`.
 
-Use for calibrated low/medium-risk evidence classes:
+Current calibrated capability envelope is intentionally narrower than the target:
 
-- approximate DOM/CSS/layout/paint;
-- flex/grid/table/positioning checks;
-- geometry/overflow;
-- direct `image.RGBA` output;
-- in-memory crop/pixel diff;
-- speculative render while Chromium HMR completes;
-- early region localization.
+- direct RGBA rendering: implemented;
+- in-memory crop/ROI: implemented;
+- renderer/fidelity metadata: implemented;
+- stable geometry/style inspection: **not yet implemented** through the current public WGGo adapter;
+- scenarios: not implemented;
+- browser accuracy: false by definition.
 
-WGGo is never assumed to be browser-perfect. `internal/fidelity` decides whether it may prove a condition or is speculative only.
+Use L1 only for evidence it can actually prove. Unsupported geometry/styles/scenario requirements must escalate rather than fabricate evidence.
 
 ## L2 — FastBrowser
 
-Resident `chrome-headless-shell` / Chromium controlled through direct CDP from Go.
+Current implementation: `internal/runtime/fastcdp` using a custom raw-CDP websocket transport and resident Chromium-family process.
 
-Required properties:
+Implemented:
 
-- process started once;
+- process launched once;
 - bounded warm context/page pool;
-- HMR instead of normal reload/navigation;
-- explicit render epoch/readiness;
-- `DOMSnapshot.captureSnapshot` with verifier-specific computed-style whitelist;
-- ROI-first screenshot capture;
-- raw CDP vs `chromedp/cdproto` vs Rod chosen by benchmark;
-- smallest-reset recovery;
-- stale-state detection.
+- explicit render epoch/readiness bridge;
+- `DOMSnapshot.captureSnapshot` with selected computed styles;
+- accessibility tree capture;
+- font-state capture;
+- runtime/network/console diagnostics;
+- ROI screenshot capture;
+- canonical packet projection;
+- per-operation runtime latency;
+- page discard/replacement;
+- recovery classification/policy.
 
-Purpose: Blink-accurate warm evidence with tens-of-ms targets where feasible.
+Still required:
+
+- comparative raw-CDP vs `chromedp/cdproto` vs Rod vs warm Playwright benchmark before the driver is considered permanently selected;
+- complete stale-state health model;
+- recovery executor that actually applies the component → page → context → browser policy across the runtime;
+- integration with ImpactSet/invalidation so evidence collection is scoped by the canonical change pipeline.
 
 ## L3 — TruthPath
 
@@ -207,11 +288,11 @@ Use for:
 - cross-browser milestone/release verification;
 - L1/L2 fidelity calibration.
 
-TruthPath is not the latency-critical inner loop.
+**Current state: not implemented.** This is a major next capability after the canonical FastPath pipeline is wired.
 
 ## L4 — Semantic visual critique
 
-Local-first VLM/hierarchical critic only for unresolved semantic questions:
+Local-first VLM/hierarchical critic for unresolved semantic questions:
 
 - hierarchy;
 - typography relationships;
@@ -221,33 +302,47 @@ Local-first VLM/hierarchical critic only for unresolved semantic questions:
 - art direction;
 - subtle visual polish.
 
-Prefer targeted page → section → component crops and structural context rather than full 4K screenshots.
+**Current state: architecture/rubric only; no production critic provider yet.**
 
 ---
 
 # 5. Core packages and ownership
 
+## Implemented packages
+
 ```text
-internal/design        canonical rubric/rules/profiles
-internal/evidence      normalized evidence contracts
-internal/engine        validation policy/orchestration decisions
-internal/mcpserver     MCP adapter only
-internal/impact        native frontend dependency/impact model and resolver
-internal/invalidation  ImpactSet → validation-scope policy
-internal/fidelity      capability scanner + fidelity risk/router
-internal/runtime/fastrender  renderer-neutral L1 contract
-internal/runtime/wggo        WGGo adapter
-internal/runtime/fastcdp     resident Chromium direct-CDP adapter
+internal/design              canonical rubric baseline
+internal/evidence            normalized evidence contracts
+internal/evidenceplan        current evidence-shape planner
+internal/engine              evaluation + tier routing decisions
+internal/mcpserver           thin MCP adapter
+internal/impact              native frontend dependency/impact model/resolver
+internal/fidelity            capability/risk model
+internal/runtime/fastrender  renderer-neutral render contract
+internal/runtime/wggo        WGGo L1 adapter
+internal/runtime/fastcdp     resident Chromium raw-CDP L2 runtime
+internal/verifier            deterministic verification
+internal/visualdiff          in-memory RGBA comparison primitive
+
+control/axiom                isolated nested Go module for Axiom control plane
+control/axiom/controlplane   run model, budgets, history, memory/file stores
+control/axiom/uiuxadapter    UiUx execution adapter + FastCDP collector
+```
+
+`control/axiom` is intentionally a **separate module**, not `internal/control`. This isolates Axiom/Pebble/Prometheus-related dependency weight from the root FastPath module. This is the current accepted implementation boundary unless future measurements justify a change.
+
+## Planned packages/capabilities
+
+```text
+internal/invalidation        ImpactSet → validation-scope policy
 internal/runtime/playwright  TruthPath adapter
-internal/visualdiff     RGBA/region diff + DOM-region mapping
-internal/critic         deterministic/relative/hierarchical critique
-internal/vlm            model-neutral local VLM providers
-internal/control        Axiom control-plane adapter/workflows
-internal/knowledge      SncSinCore memory/admission/retrieval adapter
-internal/skillruntime   SkillState bounded projection/evolution adapter
-internal/research       DeepSearch optional research adapter
-internal/memory         design-memory domain policy
-internal/eval           adversarial/replay/benchmark corpus
+internal/critic              relative/hierarchical critique domain
+internal/vlm                 model-neutral local VLM providers
+internal/knowledge           SncSinCore memory/admission/retrieval adapter
+internal/skillruntime        SkillState bounded projection/evolution adapter
+internal/research            DeepSearch optional research adapter
+internal/memory              design-memory domain policy
+internal/eval                adversarial/replay/benchmark corpus
 ```
 
 Domain packages depend on local interfaces. External library types do not leak across ownership boundaries.
@@ -256,7 +351,9 @@ Domain packages depend on local interfaces. External library types do not leak a
 
 ---
 
-# 6. Canonical renderer contracts
+# 6. Canonical execution and renderer contracts
+
+Renderer contract:
 
 ```text
 Render(ctx, RenderRequest) → RenderEvidence
@@ -266,17 +363,52 @@ RunScenario(ctx, ScenarioRequest) → ScenarioEvidence
 Capabilities() → RendererCapabilities
 ```
 
-Evidence records:
+Canonical validation path to implement now:
+
+```text
+ValidationRequest
+  ├─ change set / changed files
+  ├─ intent
+  ├─ target project/page/story
+  ├─ viewport/theme/scenario
+  ├─ final-gate flag
+  └─ budget
+        ↓
+ImpactResolver
+        ↓
+ImpactSet
+        ↓
+InvalidationPolicy
+        ↓
+ValidationScope
+        ↓
+Fidelity assessment + evidence need
+        ↓
+RouteDecision
+        ↓
+L0 / L1 / L2 / L3 collector
+        ↓
+evidence.Packet
+        ↓
+Deterministic verifier
+        ↓
+engine.Report / next action
+```
+
+No MCP/Axiom-specific type belongs inside this domain path.
+
+Evidence records must retain, as applicable:
 
 - hierarchy/semantic refs;
 - geometry;
 - selected styles;
-- runtime issues when available;
-- raw RGBA/artifact ref;
-- renderer/version;
+- runtime issues;
+- raw RGBA locally or artifact ref/digest;
+- renderer/version/tier;
 - fidelity/confidence;
 - latency breakdown;
-- provenance/digest.
+- provenance/digest;
+- impact/scope correlation.
 
 ---
 
@@ -286,13 +418,13 @@ Evidence records:
 
 Examples: static/lightly dynamic HTML, ordinary block/flex/grid/table, basic typography/positioning, supported SVG/images.
 
-Preferred route: L1 FastRender with periodic L2 calibration.
+Preferred route: L1 only for capability classes proven by the current adapter and parity corpus; otherwise L2.
 
 ## MEDIUM risk
 
 Examples: React/Vue runtime DOM, complex nested layout, custom fonts, SVG-heavy components, moderate transforms/animations.
 
-Preferred route: L1 speculative + L2 confirmation as policy requires.
+Preferred route: L1 speculative where useful + L2 confirmation.
 
 ## HIGH risk
 
@@ -300,136 +432,60 @@ Examples: canvas/WebGL, unsupported CSS filters/masks/paint features, shadow DOM
 
 Preferred route: L2/L3; L1 may only assist localization.
 
-Feature scanner tracks unsupported CSS/functions, canvas/WebGL, SVG features, shadow DOM/custom elements, pseudo elements/selectors, browser APIs, custom fonts, transforms/filters/masks, dynamic measurements and hydration/runtime dependencies.
+The feature scanner/risk model must keep expanding toward unsupported CSS/functions, canvas/WebGL, SVG features, shadow DOM/custom elements, pseudo elements/selectors, browser APIs, custom fonts, transforms/filters/masks, dynamic measurements and hydration/runtime dependencies.
 
 ---
 
 # 8. UiUxMaster Incremental Impact Engine (P0)
 
-The impact engine is a **UiUxMaster-native frontend analysis subsystem**. Its job is to answer one product-specific question:
+The impact engine answers:
 
 > Given this source/design/runtime change, what is the smallest conservative set of UI states and rendered regions that must be revalidated?
 
-It is not a generic process-flow editor and must not inherit process-simulation semantics from AutoTraceLab.
+Current implementation already provides:
 
-Target graph:
+- frontend-specific node/edge kinds;
+- race-safe forward and reverse adjacency;
+- deterministic snapshots/order;
+- Tarjan SCC;
+- stable source/module/style/component/token IDs;
+- JS/TS import scanning;
+- CSS import/token indexing;
+- unresolved dynamic import → explicit uncertainty;
+- component instance/page/region primitives;
+- runtime semantic-ref binding primitives;
+- conservative broad flag for unknown/uncertain nodes;
+- resolver benchmarks and synthetic project benchmark harness.
 
-```text
-SourceFile
-→ Module / StyleSheet / DesignToken
-→ Component / Variant
-→ ComponentInstance
-→ Route / Story / Page
-→ SemanticElementRef
-→ RenderRegion
-→ Viewport / Theme / Scenario
-```
+Still required for exit:
 
-## 8.1 Native graph kernel
+- explicit `internal/invalidation` scope policy;
+- cheap incremental/delta graph update rather than only rebuild/query primitives;
+- route/story registry ingestion rather than only builder-level primitives;
+- automatic L1/L2 runtime semantic-ref feedback into the graph;
+- critical-route policy;
+- false-negative mutation/adversarial suite;
+- 1k/10k/100k recorded gates and allocations;
+- full/incremental recompute parity;
+- `ImpactSet` wired into the canonical router/runtime path.
 
-Implement the minimum graph machinery required by this domain directly under UiUxMaster:
-
-```text
-internal/impact/
-  model.go
-  graph.go
-  builder.go
-  reverse_index.go
-  scc.go
-  dirty.go
-  query.go
-  snapshot.go
-  resolver.go
-```
-
-Required properties:
-
-- frontend-specific typed node/edge kinds;
-- deterministic ordering;
-- forward/reverse adjacency;
-- SCC + condensation DAG for cyclic module/component dependencies;
-- bounded dirty propagation;
-- immutable/read-optimized snapshot + cheap delta/update path;
-- stable IDs;
-- versioned serialization only if persistence proves useful;
-- no renderer/browser/React runtime dependency in the graph kernel itself;
-- 100/1k/10k/100k-node benchmarks.
-
-Do not create a generic graph framework beyond what UiUxMaster needs.
-
-## 8.2 UiUxMaster port
-
-```go
-type ImpactResolver interface {
-    ApplyChanges(context.Context, ChangeSet) (ImpactSet, error)
-    ResolveComponent(context.Context, string) (ImpactSet, error)
-    ResolveToken(context.Context, string) (ImpactSet, error)
-}
-```
-
-Inputs start pragmatic rather than waiting for a perfect compiler:
-
-1. agent/git changed-file set;
-2. JS/TS/template import graph;
-3. CSS module/style imports;
-4. CSS custom-property definitions/references;
-5. explicit component/test/design IDs;
-6. route/story registry;
-7. runtime semantic refs learned from L1/L2;
-8. optional framework adapters for React/Vue/Svelte when measured value justifies them.
-
-## 8.3 Invalidation rules
-
-- component-local CSS → affected instances;
-- shared component → all known instances/representative pages;
-- local token → consumers;
-- global reset/typography/theme token → broad representative-page set;
-- SCC/cycle → invalidate SCC as one unit;
-- unknown dynamic import/runtime ownership → conservative expansion;
-- uncertain ownership → conservative expansion;
-- user-declared critical routes may force wider validation regardless of graph locality.
-
-## 8.4 Performance/quality gates
-
-Initial targets to validate:
+Performance targets remain hypotheses until recorded:
 
 - 1k-node local impact p95 <1 ms;
 - 10k-node p95 <5 ms;
 - 100k-node bounded local change p95 <20 ms;
-- no full traversal on known leaf edit;
-- incremental/full recompute parity;
-- false-negative mutation suite passes;
-- framework adapters cannot silently reduce conservative coverage.
+- no full traversal/revalidation on a known leaf edit;
+- impact false-negative rate must be explicitly measured.
 
-Exit: local edits no longer cause whole-site verification by default.
+## AutoTraceLab optional reuse gate
 
-## 8.5 AutoTraceLab optional reuse gate — P3/reference only
-
-AutoTraceLab is primarily a system for building, tracing and analysing block/process diagrams. It is **not** the source of truth or mandatory dependency for UiUxMaster frontend impact analysis.
-
-After the native `internal/impact` contracts, fixtures and benchmarks exist, individual algorithms may be reviewed for reuse, for example:
-
-- deterministic SCC implementation;
-- condensation DAG construction;
-- generic reverse-adjacency helpers;
-- dirty/incremental recomputation primitives;
-- graph snapshot or deterministic ordering utilities.
-
-Reuse is allowed only if all gates pass:
-
-1. the primitive is genuinely domain-neutral;
-2. it can be isolated without importing AutoTraceLab application/process/UI semantics;
-3. its API fits UiUxMaster local ports without leaking foreign types;
-4. benchmark shows equal or better latency/allocation/maintainability than the native implementation;
-5. correctness fixtures and mutation tests remain green;
-6. license/provenance is compatible;
-7. dependency cost is lower than copying/maintaining a tiny stable primitive where licensing permits.
-
-Otherwise keep the UiUxMaster-native implementation.
+AutoTraceLab is not a dependency or owner of this subsystem. Isolated domain-neutral graph primitives may be compared only after the native baseline and mutation suite are stable. Adopt nothing unless correctness, latency, allocation, maintenance and provenance gates clearly win.
 
 ---
 
 # 9. Warm render lifecycle
+
+Target lifecycle:
 
 ```text
 UiUxMaster startup
@@ -442,7 +498,7 @@ UiUxMaster startup
 → targeted L1/L2 evidence
 ```
 
-Use an explicit app/render synchronization signal such as `window.__UIUX_RENDER_EPOCH__` or adapter equivalent.
+Current FastCDP already provides the resident process, warm bounded page pool and epoch bridge. The missing step is connecting source-change/ImpactSet semantics to warm target ownership and collection scope.
 
 Do not use arbitrary sleeps or generic `networkidle` as the normal HMR readiness condition.
 
@@ -450,43 +506,59 @@ Do not use arbitrary sleeps or generic `networkidle` as the normal HMR readiness
 
 # 10. In-memory visual path
 
-When L1 returns RGBA:
+Preferred L1 path:
 
 ```text
 render → RGBA → crop/subimage → diff/statistics → optional VLM encoding of selected crop
 ```
 
-Avoid:
+Implemented foundations:
 
-```text
-render → PNG → filesystem → decode → diff
-```
+- WGGo returns `image.RGBA`;
+- WGGo ROI crop stays in memory;
+- `internal/visualdiff.CompareRGBA` compares RGBA directly and returns changed bounds/statistics.
 
-For L2, prefer ROI screenshots. Full-page captures are milestone/debug artifacts rather than hot-path defaults.
+Still required:
 
-WGGo may run speculatively in parallel with Chromium HMR. A high-confidence deterministic L1 failure may start a repair before L2 finishes; L1 PASS is accepted only inside calibrated fidelity classes.
+- wire visualdiff into the canonical validation pipeline;
+- region clustering beyond one bounding rectangle;
+- DOM/semantic intersection;
+- protected baseline storage and L3 calibration.
+
+For L2, ROI screenshot is already implemented and remains the default visual capture strategy. Full-page captures are milestone/debug artifacts rather than hot-path defaults.
 
 ---
 
 # 11. Latency telemetry
 
-Every evidence run records at minimum:
+Current `evidence.Packet` exposes L2 runtime timing for epoch wait, snapshot, pixels, accessibility, fonts, diagnostics, total and retries.
+
+The **end-to-end** canonical run must expand this to at least:
 
 ```text
 impact_ms
+invalidation_ms
 fidelity_scan_ms
+route_ms
 fast_render_ms
 hmr_wait_ms
 browser_snapshot_ms
 roi_capture_ms
 pixel_diff_ms
+verify_ms
 memory_query_ms
 vlm_ms
 synthesis_ms
 total_ms
 ```
 
-Also record cold/warm state and evidence tier.
+Also record:
+
+- cold/warm state;
+- evidence tier;
+- validation scope size;
+- browser/page reuse vs reset;
+- provenance/fidelity ID.
 
 Never claim system speedup without p50/p95/p99 distributions and a defined scenario.
 
@@ -494,39 +566,37 @@ Never claim system speedup without p50/p95/p99 distributions and a defined scena
 
 # 12. Benchmark program
 
-## Drivers
+## Already implemented
 
-- raw CDP baseline;
-- `chromedp/cdproto`;
-- Rod;
-- Playwright attached to existing browser;
-- Playwright component/context-reuse modes when applicable.
+- `cmd/uiuxbench` for impact/project indexing/WGGo with p50/p95/p99;
+- `cmd/uiuxcdpbench` for resident raw-CDP operations with p50/p95/p99;
+- CI smoke execution of both;
+- real Chromium FastCDP integration CI.
 
-## Engines
+## Still required before locking runtime choices
 
-- WGGo/go-webengine candidate;
-- `chrome-headless-shell`;
+### Drivers
+
+- raw CDP current implementation;
+- `chromedp/cdproto` comparison;
+- Rod comparison;
+- Playwright attached to existing browser comparison;
+- Playwright component/context-reuse comparison when applicable.
+
+### Engines / paths
+
+- WGGo/go-webengine;
+- `chrome-headless-shell` where available;
 - modern Chromium Headless;
-- branded Chrome when useful;
+- branded Chrome where useful;
 - Playwright Chromium/Firefox/WebKit TruthPath;
-- Lightpanda structural-only experiments, never pixel truth.
+- Lightpanda structural-only experiment only if it demonstrates value, never pixel truth.
 
-## Impact-engine implementations
+### Required artifact policy
 
-Benchmark the native implementation first. Optional external graph primitives are compared only after the native baseline is stable.
+CI must not only print benchmark JSON to `/tmp`. Introduce a reproducible benchmark artifact/history mechanism with scenario/version/browser/hardware metadata before performance gates are treated as stable evidence.
 
-Metrics include:
-
-- full build;
-- one-leaf update;
-- shared-component update;
-- global-token invalidation;
-- SCC update;
-- 1k/10k/100k node graphs;
-- allocations;
-- false-negative mutation coverage.
-
-## UI fixtures
+### UI fixtures
 
 1. static marketing page;
 2. flex/grid-heavy landing;
@@ -539,23 +609,9 @@ Metrics include:
 9. complex interactive component;
 10. unsupported-feature/fidelity traps.
 
-## Runtime operations
+### Metrics
 
-- cold start;
-- warm acquire;
-- CSS HMR → ready;
-- component JS HMR → ready;
-- layout snapshot;
-- RGBA render without PNG;
-- ROI render/capture;
-- viewport/full-page capture;
-- pixel diff;
-- click → evidence;
-- resize → evidence.
-
-## Metrics
-
-p50/p95/p99, CPU, RSS, allocations, protocol bytes/round trips, image encode cost, fidelity vs TruthPath, false PASS/FAIL.
+p50/p95/p99, CPU, RSS, allocations, protocol bytes/round trips, image encode cost, fidelity vs TruthPath, false PASS/FAIL and impact false negatives.
 
 ---
 
@@ -563,7 +619,7 @@ p50/p95/p99, CPU, RSS, allocations, protocol bytes/round trips, image encode cos
 
 - L0/impact common local scope: <5 ms.
 - L1 simple component validation: <30 ms where feasible.
-- L1 geometry/diff operations: 1–10 ms targets.
+- L1 pixel/diff operations: 1–10 ms targets.
 - L2 structural ROI snapshot: 2–20 ms target.
 - L2 small ROI screenshot: 5–30 ms target.
 - L2 common warm deterministic validation: <50 ms where feasible, p95 <100 ms aspiration.
@@ -573,15 +629,52 @@ Orders-of-magnitude speedup comes from eliminating cold launch/navigation/full-p
 
 ---
 
-# 14. Axiom control-plane integration (P0)
+# 14. Axiom control-plane integration
 
-Axiom is used for **selected long-running/explainable workflows**, never around each CDP/render primitive.
+Axiom is used for **selected multi-step/explainable workflows**, never around each CDP/render primitive.
 
-Current prerequisite: Axiom requires Go 1.26+, so direct integration begins only after UiUxMaster upgrades from Go 1.25 and CI/race/vet remain green.
+## Current implementation
 
-Use the Axiom declarative `model` frontend for new workflow definitions and typed activities for effects.
+Axiom integration has started and is real:
 
-## 14.1 Workflow candidates
+```text
+control/axiom/                    separate Go module
+  controlplane/                   Axiom runtime wrapper + Run projection
+  uiuxadapter/                    execution adapter
+  uiuxadapter/FastCDPCollector    resident L2 collector
+```
+
+Current P0 workflow:
+
+```text
+PlanEvidence
+→ CollectVerify
+→ Decide
+```
+
+Already implemented:
+
+- Go 1.26 compatibility;
+- pinned Axiom dependency;
+- root FastPath dependency isolation check;
+- separate Axiom CI with test/race/vet;
+- explicit compact budgets/usage;
+- cancellation;
+- ordered history projection;
+- in-memory store;
+- file-backed durable store;
+- restart/reopen recovery test;
+- real Axiom → FastCDP → deterministic verifier → engine integration test.
+
+## Important current limitation
+
+The Axiom adapter currently reaches FastCDP through `evidenceplan` rather than consuming the complete canonical ImpactSet → invalidation → fidelity/router pipeline. Fixing this is higher priority than adding more workflow states.
+
+## Workflow evolution
+
+The current P0 `adgo.Definition` workflow is accepted as a vertical slice. New richer workflows should prefer the Axiom declarative `model` frontend when it improves correctness/readability and does not force a needless rewrite of stable low-level code.
+
+Future workflow candidates:
 
 - `DesignPolishRun`;
 - `CandidateComparisonRun`;
@@ -590,82 +683,30 @@ Use the Axiom declarative `model` frontend for new workflow definitions and type
 - `DesignEvalRun`;
 - `SkillPromotionRun`.
 
-Do not use Axiom for individual layout/screenshot/diff operations.
+`DesignPolishRun` eventually adds state/events for impact resolution, findings, repairs, candidate comparison, fidelity escalation and independent verification.
 
-## 14.2 DesignPolishRun model
+## Durability policy
 
-State includes run ID, goal, phase, iteration, impact/evidence digests, open/resolved findings, candidates, budget and status.
+Durability exists earlier than the original plan expected. Do not remove a working isolated capability merely to match the old sequence. Instead:
 
-Events:
+- keep durable state compact;
+- keep heavy evidence outside workflow state by digest/ref;
+- measure crash-resume/recovery value and overhead;
+- add an ADR/eval if durability becomes a production default rather than an optional constructor.
 
-```text
-Start
-ImpactResolved
-EvidenceCollected
-FindingRaised
-RepairProposed
-RepairApplied
-CandidateCompared
-EscalateFidelity
-Verify
-Complete
-Fail
-Cancel
-```
-
-Claims/invariants include:
-
-- no complete while blocking findings remain;
-- no verified TruthPath state without matching evidence digest;
-- iteration/budget bounds;
-- inaccessible/broken candidate cannot win aesthetically;
-- collector failure != PASS;
-- activity IDs/idempotency are stable.
-
-## 14.3 Activities
-
-Typed activities wrap existing local ports:
-
-- request L1/L2 evidence;
-- request TruthPath scenario;
-- semantic critic;
-- host repair application;
-- evidence persistence;
-- SncSinCore query/admission;
-- SkillState projection/evolution evaluation.
-
-Axiom owns retry/timeout/idempotency for these workflow activities where needed.
-
-## 14.4 Explicit budgets
-
-```text
-max_iterations
-max_total_latency
-max_vlm_calls
-max_truthpath_runs
-max_candidates
-max_repair_attempts
-```
-
-Remaining budget + uncertainty participates in routing.
-
-## 14.5 Storage
-
-Start in-memory. Enable Pebble/durable execution only when crash-resume has measured product value. Large evidence blobs stay in artifact/evidence storage by digest/URI.
-
-Exit: multi-step polish/eval runs are reproducible/explainable without measurable L0–L2 hot-path regression.
+Exit: multi-step polish/eval runs are reproducible/explainable, use the canonical execution pipeline, and introduce no measurable L0–L2 hot-path regression.
 
 ---
 
-# 15. SncSinCore epistemic design memory (P0/P1)
+# 15. SncSinCore epistemic design memory
 
-Use SncSinCore for **admitted long-term evidence-backed knowledge**, not operational state or raw conversation history.
+**Current state: not implemented.**
+
+Use SncSinCore for admitted long-term evidence-backed knowledge, not operational state or raw conversation history.
 
 Start with embedded `epmemory`; activate segmented `memoryv2` only after corpus/memory/latency thresholds justify it.
 
-## 15.1 Ontology
-
-Node classes:
+Ontology targets:
 
 - DesignFinding;
 - DesignRule;
@@ -678,23 +719,7 @@ Node classes:
 - EvaluationResult;
 - ResearchSource.
 
-Relations:
-
-```text
-evidence_for
-refutes
-generalizes
-observed_on
-caused_by
-repaired_by
-improves_axis
-regresses_axis
-applicable_to
-counterexample_to
-derived_from
-```
-
-## 15.2 Admission
+Admission:
 
 ```text
 runtime observation
@@ -706,28 +731,7 @@ runtime observation
 
 Every admitted fact retains run ID, evidence digest, renderer/fidelity, environment, critic/rule version, scope and outcome.
 
-## 15.3 Retrieval port
-
-```go
-type DesignMemory interface {
-    Query(context.Context, MemoryQuery, MemoryBudget) (MemoryView, error)
-    Propose(context.Context, []MemoryCandidate) error
-}
-```
-
-Queries are requirement/target driven, e.g. validated repairs + counterexamples for weak dark-SaaS hero typography, rather than generic top-k similarity.
-
-## 15.4 Minimal ContextPack
-
-Semantic critic receives a bounded sufficient view, for example:
-
-- <=5 validated similar cases;
-- <=3 counterexamples/refutations;
-- applicable invariants;
-- unresolved conflicts;
-- provenance refs.
-
-## 15.5 Namespace firewall
+Namespace firewall:
 
 ```text
 knowledge/global-design
@@ -739,15 +743,15 @@ skillmeta/<skill-id>
 
 Project-private content never leaks into global memory. Conflicts are preserved rather than averaged away.
 
-Exit: held-out design evals measurably improve with memory enabled without context explosion or scope leakage.
-
 ---
 
-# 16. SkillState bounded state + controlled evolution (P1)
+# 16. SkillState bounded state + controlled evolution
 
-SkillState owns the bounded typed **working projection** seen by the reasoning model. It is not canonical truth and not a scheduler.
+**Current state: not implemented.**
 
-## 16.1 Working state
+SkillState owns the bounded typed working projection seen by the reasoning model. It is not canonical truth and not a scheduler.
+
+Target state:
 
 ```text
 run_id
@@ -766,34 +770,9 @@ oscillation_flags
 
 Large screenshots, DOM, traces and histories are references/digests only.
 
-## 16.2 Typed patches and CAS
+Model output mutates state only through typed patches with expected revision/digest. Stale/rejected patches mutate nothing.
 
-Model output mutates working state only through typed patches with expected revision/digest. Stale/rejected patches mutate nothing.
-
-## 16.3 SncSinCore MemoryPort
-
-Reasoning input becomes:
-
-```text
-immutable Spec P
-+ bounded state Σ
-+ latest observation O
-+ verified MemoryView on demand
-```
-
-No implicit replay of long chat/history.
-
-## 16.4 Oscillation detection
-
-Track compact hypothesis/outcome IDs and detect loops such as:
-
-```text
-repair A → breaks B → repair B → restores A → repeat
-```
-
-On oscillation, require higher-level redesign rather than another identical local patch.
-
-## 16.5 Evolution pipeline
+Evolution pipeline:
 
 ```text
 Observation
@@ -808,37 +787,17 @@ Observation
 
 Security/privacy/authorization policy is never self-modifying.
 
-Promotion requires multiple unrelated fixtures, target-axis improvement, correctness/accessibility non-regression, acceptable false positives, measured token/latency cost, counterexamples, provenance and validated rollback.
-
-Exit: 50+ iteration trajectories maintain bounded context and candidate rules cannot become active without reproducible evidence.
-
 ---
 
-# 17. DeepSearch research plane (P2, optional)
+# 17. DeepSearch research plane
 
-DeepSearch remains an optional sidecar/provider. UiUxMaster must work fully for local rendering/verification without Python or DeepSearch installed.
+**Current state: not implemented; optional.**
 
-Trigger only for:
+DeepSearch remains a sidecar/provider. UiUxMaster must work fully for local rendering/verification without Python or DeepSearch installed.
 
-- new domain/product profile;
-- current standards/browser/WCAG questions;
-- unfamiliar UI/UX pattern;
-- periodic research refresh;
-- benchmark/source verification;
-- explicit evidence/research request.
+Use only for research/acquisition needs such as current standards, unfamiliar patterns, product/domain research, benchmark/source verification or explicit evidence requests.
 
-## Adapter
-
-```go
-type Researcher interface {
-    Research(context.Context, ResearchRequest) (ResearchBundle, error)
-    InspectSource(context.Context, string) (SourceAssessment, error)
-}
-```
-
-Local REST or stdio sidecar may implement it.
-
-Admission:
+Research output never mutates active design rules directly:
 
 ```text
 DeepSearch bundle
@@ -849,93 +808,84 @@ DeepSearch bundle
 → validated knowledge
 ```
 
-Research output never mutates active design rules directly.
-
-Use content-addressable caching, explicit budgets/staleness rules, timeout/cancellation and prompt-injection-safe handling of web content.
-
-Exit: research improves knowledge freshness while the local edit loop remains independent of research availability.
-
 ---
 
 # 18. Optional ecosystem reuse and operational gates
 
-## 18.1 AutoTraceLab graph primitives — P3/reference only
+## AutoTraceLab
 
-AutoTraceLab is **not** a runtime dependency or impact-analysis owner for UiUxMaster.
+No runtime dependency and no ownership of impact semantics. Compare isolated graph techniques only if the native implementation exposes a measured gap.
 
-Use it only as a source to review individual domain-neutral graph techniques after native UiUxMaster contracts and tests exist. See §8.5.
+## IRIS patterns
 
-Do not import the AutoTraceLab React application, process simulator, block-diagram domain, scheduling semantics or scene model.
-
-## 18.2 IRIS patterns — P2
-
-Align a small compatibility schema around:
+Potential compatibility schema only around:
 
 ```text
 Claim / Evidence / Artifact / Provenance / Confidence / Scope
 ```
 
-Do not import the entire IRIS Studio application. Create a shared compatibility package only when at least two projects need the same stable schema and duplication is a measurable maintenance problem.
+Do not import IRIS Studio application semantics.
 
-## 18.3 RepoArk — P3
+## RepoArk
 
-No runtime dependency. Consider later for benchmark/release artifact archival, backup and reproducibility snapshots.
+No runtime dependency. Consider later for benchmark/release artifact archival when reproducibility/history becomes an operational need.
 
-Activation gate: losing/reproducing benchmark/release history has become an operational problem.
+## WebGate
 
-## 18.4 WebGate — P3
-
-No local-runtime dependency now. Consider only when remote browser/device workers become a committed feature.
-
-Future topology may support authenticated remote workers for Windows Chrome/Linux Chromium/macOS Safari/Android. Require authorization, authenticated transport, bounded retries, idempotency and evidence provenance.
+No local-runtime dependency. Consider only for authenticated remote browser/device workers after remote execution is a committed feature.
 
 ---
 
 # 19. MCP tool surface
 
-## Discovery/intent
+## Current surface
 
-- `uiux_get_rubric`
-- `uiux_analyze_brief`
-- `uiux_plan_validation`
+Implemented:
 
-## Runtime evidence
+- `uiux_get_rubric`;
+- `uiux_evaluate_evidence`.
 
-- `uiux_capture`
-- `uiux_inspect_layout`
-- `uiux_inspect_accessibility`
-- `uiux_run_scenario`
+The MCP adapter remains correctly thin, but the runtime/impact pipeline is **not yet exposed as a complete MCP product**.
 
-Caller requests evidence intent/fidelity, not WGGo/chromedp/Playwright vendor selection.
+## Next runtime surface
 
-## Visual comparison
+Implement only after the canonical domain path exists:
 
-- `uiux_compare_baseline`
-- `uiux_compare_candidates`
-- `uiux_localize_visual_change`
+- `uiux_plan_validation`;
+- `uiux_capture`;
+- `uiux_inspect_layout`;
+- `uiux_inspect_accessibility`;
+- `uiux_run_scenario` when a capable runtime path exists.
 
-## Semantic critique
+Caller requests evidence intent/fidelity, not WGGo/FastCDP/Playwright vendor selection.
 
-- `uiux_critique_page`
-- `uiux_critique_region`
-- `uiux_rank_candidates`
+## Later surface
 
-## Synthesis
+Visual comparison:
 
-- `uiux_evaluate_evidence` — already scaffolded;
+- `uiux_compare_baseline`;
+- `uiux_compare_candidates`;
+- `uiux_localize_visual_change`.
+
+Semantic critique:
+
+- `uiux_critique_page`;
+- `uiux_critique_region`;
+- `uiux_rank_candidates`.
+
+Synthesis:
+
 - `uiux_recommend_repairs`;
 - `uiux_verify_completion`.
 
-## Memory/evolution/research
-
-Expose only high-value operations, not every internal helper:
+Memory/evolution/research:
 
 - `uiux_record_lesson`;
 - `uiux_replay_lesson`;
 - `uiux_run_design_eval`;
-- optional explicit research operation if host composition cannot directly call DeepSearch.
+- optional explicit research operation.
 
-Large screenshots/diffs/traces/evidence/memory/benchmark artifacts are MCP resources/references, not huge inline payloads.
+Large screenshots/diffs/traces/evidence/memory/benchmark artifacts are resources/references, not huge inline payloads.
 
 ---
 
@@ -943,172 +893,255 @@ Large screenshots/diffs/traces/evidence/memory/benchmark artifacts are MCP resou
 
 ## Phase 0 — Foundation & invariants
 
-**Status: MOSTLY COMPLETE**
+**Status: NEARLY COMPLETE**
 
 - [x] Go module initialized.
 - [x] MCP Go SDK integrated.
-- [x] canonical rubric/evidence packet/engine.
+- [x] canonical rubric/evidence packet/engine baseline.
 - [x] first MCP tools over stdio.
 - [x] unit tests.
-- [x] `go test` + `go vet` CI.
-- [ ] upgrade to Go 1.26+ and requalify.
-- [ ] add `go test -race ./...` CI.
-- [ ] staticcheck if pinned/reproducible.
+- [x] Go upgraded to 1.26.4.
+- [x] `go test ./...` CI.
+- [x] `go test -race ./...` CI.
+- [x] `go vet ./...` CI.
+- [x] accepted runtime/ecosystem ownership ADR.
+- [x] root-vs-Axiom dependency isolation CI.
+- [ ] staticcheck if pinned/reproducible and useful.
 - [ ] MCP schema contract tests.
-- [ ] ADR format + runtime/ecosystem ADRs.
+- [ ] dependency/license inventory baseline.
+- [ ] synchronize README/subordinate docs with this plan.
 
-Exit: all core tests/vet/race green; external vendor types remain behind adapters.
+Exit: core tests/vet/race green, schemas contract-tested, documentation terminology aligned, vendor types remain behind adapters.
 
 ## Phase 1 — Design Intelligence Core
 
-- [ ] convert premium editorial/motion/responsive rules into versioned structured rules;
-- [ ] stable rule IDs/categories;
-- [ ] `Finding`, `Evidence`, `RepairHypothesis`, `CritiquePass`, `CandidateComparison`;
-- [ ] page→section→component→element hierarchy;
-- [ ] hard constraints vs preferences;
-- [ ] product profiles;
-- [ ] original prompt material under `knowledge/` with traceability.
+**Status: EARLY / PARTIAL**
+
+- [x] canonical design-axis rubric baseline.
+- [ ] convert premium editorial/motion/responsive rules into versioned structured rules.
+- [ ] stable rule IDs/categories.
+- [ ] domain types for `Finding`, `Evidence`, `RepairHypothesis`, `CritiquePass`, `CandidateComparison`.
+- [ ] page→section→component→element hierarchy model.
+- [ ] hard constraints vs preferences.
+- [ ] product profiles.
+- [ ] original prompt/research material under traceable knowledge sources.
 
 ## Phase 2 — Ultra-Fast Runtime
 
+**Status: SUBSTANTIAL FOUNDATION IMPLEMENTED; CANONICAL PIPELINE NOT YET COMPLETE**
+
 ### 2A Benchmark + fidelity scanner
 
-- [ ] benchmark harness;
-- [ ] capability model;
-- [ ] LOW/MEDIUM/HIGH fidelity risk;
-- [ ] WGGo/CDP/Rod/chromedp/warm Playwright measurements;
-- [ ] p50/p95/p99 + fidelity artifacts.
+- [x] benchmark harness exists.
+- [x] p50/p95/p99 reporting exists.
+- [x] renderer capability model exists.
+- [x] LOW/MEDIUM/HIGH fidelity risk model exists.
+- [x] WGGo baseline measurement exists.
+- [x] raw FastCDP warm measurements exist.
+- [ ] comparative raw-CDP/chromedp/Rod/warm-Playwright benchmark.
+- [ ] CPU/RSS/protocol/allocation coverage across representative scenarios.
+- [ ] persistent benchmark/fidelity artifacts with environment metadata.
+- [ ] FastPath/TruthPath fidelity corpus.
 
 ### 2B UiUxMaster Incremental Impact Engine
 
-- [ ] define native `ImpactResolver`/`ImpactSet` contracts and fixtures;
-- [ ] implement frontend-specific node/edge model;
-- [ ] source/import/CSS-token analyzers;
-- [ ] reverse index/SCC/dirty propagation;
-- [ ] route/story/component ownership graph;
-- [ ] runtime semantic-ref binding;
-- [ ] conservative fallback for uncertain dynamic relationships;
-- [ ] false-negative mutation suite;
-- [ ] feed `ImpactSet` to router;
-- [ ] benchmark native implementation before considering any external graph primitive.
+- [x] native `ImpactSet`/resolver contracts.
+- [x] frontend-specific node/edge model.
+- [x] deterministic forward/reverse graph.
+- [x] SCC implementation.
+- [x] source/import/CSS-token analyzers.
+- [x] unresolved dynamic dependency → conservative uncertainty.
+- [x] component/page/region builder primitives.
+- [x] runtime semantic-ref binding primitive.
+- [x] basic benchmarks/project fixture harness.
+- [ ] explicit `internal/invalidation` package.
+- [ ] cheap delta/incremental update path and full-vs-incremental parity.
+- [ ] route/story registry ingestion.
+- [ ] automatic runtime semantic-ref feedback from L1/L2.
+- [ ] critical-route/widening policy.
+- [ ] false-negative mutation suite.
+- [ ] recorded 1k/10k/100k performance gates.
+- [ ] feed `ImpactSet` into the canonical validation router/runtime.
 
 ### 2C WGGo FastRender
 
-- [ ] renderer-neutral interface;
-- [ ] WGGo adapter if benchmark justifies;
-- [ ] geometry/styles/RGBA;
-- [ ] ROI direct diff;
-- [ ] fidelity metadata/escalation;
-- [ ] parity fixtures.
+- [x] renderer-neutral interface.
+- [x] WGGo adapter.
+- [x] direct RGBA render.
+- [x] direct ROI crop.
+- [x] capability/fidelity metadata.
+- [x] router escalates geometry when L1 cannot prove it.
+- [ ] stable WGGo geometry/style inspection API or explicit permanent pixel-only envelope.
+- [ ] visualdiff wired to L1 pipeline.
+- [ ] parity fixtures against L2/L3.
+- [ ] evidence classes explicitly calibrated for allowed L1 PASS.
 
 ### 2D Resident Chromium FastBrowser
 
-- [ ] browser daemon/pool;
-- [ ] `chrome-headless-shell` candidate;
-- [ ] direct-CDP driver benchmark/selection;
-- [ ] HMR/render epoch;
-- [ ] `DOMSnapshot` + style whitelist;
-- [ ] ROI capture;
-- [ ] stale-state detection;
-- [ ] smallest-reset ladder.
+- [x] resident browser process.
+- [x] raw-CDP transport.
+- [x] bounded warm page pool.
+- [x] isolated browser context ownership.
+- [x] explicit render epoch bridge/gate.
+- [x] DOMSnapshot + selected styles.
+- [x] accessibility tree capture.
+- [x] font-state capture.
+- [x] runtime/network/console diagnostics.
+- [x] ROI screenshot capture.
+- [x] canonical evidence packet projection.
+- [x] per-stage L2 latency metrics.
+- [x] page discard/replacement path.
+- [x] recovery classification/policy model.
+- [x] real Chromium integration CI.
+- [ ] comparative driver selection evidence.
+- [ ] full runtime recovery executor using component→page→context→browser ladder.
+- [ ] comprehensive stale-state health checks.
+- [ ] ImpactSet/scope-driven warm-target selection and evidence collection.
 
 ### 2E Playwright TruthPath
 
-- [ ] clean-state screenshots/ARIA/errors/fonts;
-- [ ] complex scenarios;
-- [ ] browser matrix;
-- [ ] deterministic baseline controls;
-- [ ] L1/L2 calibration corpus.
+**Status: NOT STARTED**
 
-Exit: normal local edit does not navigate/relaunch and uses the cheapest sufficient evidence tier.
+- [ ] clean-state screenshots/ARIA/errors/fonts.
+- [ ] worker/adapter with vendor types contained outside domain core.
+- [ ] complex scenarios.
+- [ ] browser matrix.
+- [ ] deterministic baseline controls.
+- [ ] L1/L2 calibration corpus.
+- [ ] protected baseline storage/reference policy.
+
+Phase 2 exit: normal local edit does not navigate/relaunch, ImpactSet bounds scope, the router chooses the cheapest sufficient tier, L1 PASS is calibrated, L2 is resident Blink truth, and L3 independently calibrates clean/cross-browser cases.
 
 ## Phase 3 — Deterministic verifiers
 
-- overflow;
-- clipping;
-- overlap;
-- offscreen/invalid geometry;
-- fixed/sticky obstruction;
-- target size;
-- computable contrast;
-- accessible names;
-- focus traps/obstruction;
-- duplicate IDs;
-- hidden/zero-size controls;
-- truncation anomalies;
-- responsive failures.
+**Status: IN PROGRESS**
 
-Run on the cheapest evidence tier capable of proving the condition.
+Implemented:
+
+- [x] horizontal viewport overflow.
+- [x] ancestor clipping.
+- [x] interactive clipping severity.
+- [x] interactive target overlap.
+- [x] hidden interactive controls.
+- [x] pointer-events disabled controls.
+- [x] target-size policy with inline-link exception.
+- [x] style invariants.
+- [x] missing/ignored AX node checks.
+- [x] missing actionable role.
+- [x] accessible-name checks.
+- [x] font-set loading/font-face error checks.
+- [x] runtime/network/console failures enter canonical evidence.
+
+Still required:
+
+- [ ] generalized offscreen/invalid geometry.
+- [ ] fixed/sticky obstruction.
+- [ ] computable color contrast.
+- [ ] focus trap/focus obstruction.
+- [ ] duplicate IDs.
+- [ ] stronger hidden/zero-size control classification.
+- [ ] truncation anomalies.
+- [ ] responsive failure rules.
+- [ ] mutation/adversarial recall and false-positive metrics.
+
+Run every rule on the cheapest tier capable of proving it.
 
 ## Phase 4 — Visual regression/localization
 
-- in-memory RGBA/ROI diff where faithful;
-- browser ROI for Blink truth;
-- Playwright baseline for protected clean/cross-browser regression;
-- region clustering;
-- changed-pixel density;
-- DOM box intersection;
-- semantic findings instead of raw pixel counts.
+**Status: EARLY FOUNDATION**
+
+- [x] in-memory RGBA comparison primitive.
+- [x] changed-pixel count/ratio/bounds/max-delta statistics.
+- [x] browser ROI capture available from L2.
+- [ ] baseline abstraction/versioning.
+- [ ] region clustering.
+- [ ] changed-pixel density per region.
+- [ ] DOM box intersection.
+- [ ] semantic visual-change findings.
+- [ ] Playwright protected clean/cross-browser baselines.
 
 ## Phase 5 — Axiom control plane
 
-- [ ] Go 1.26 compatibility complete;
-- [ ] `DesignPolishRun` model/state/events/claims;
-- [ ] typed evidence/critic/repair/memory activities;
-- [ ] explicit budgets;
-- [ ] cancellation/retry/idempotency;
-- [ ] in-memory workflow first;
-- [ ] durability only after proven need;
-- [ ] explain/history diagnostics.
+**Status: P0 VERTICAL SLICE IMPLEMENTED; FULL POLISH WORKFLOW PENDING**
+
+- [x] Go 1.26 compatibility.
+- [x] isolated nested Axiom module.
+- [x] pinned Axiom version.
+- [x] Axiom-specific CI with race/vet.
+- [x] P0 `PlanEvidence → CollectVerify → Decide` workflow.
+- [x] explicit compact budgets/usage.
+- [x] cancellation.
+- [x] history/explain projection.
+- [x] in-memory execution.
+- [x] file-backed durable execution.
+- [x] restart/reopen recovery test.
+- [x] real FastCDP collector integration.
+- [ ] Axiom adapter consumes canonical Impact→Invalidation→Fidelity→Runtime pipeline.
+- [ ] `DesignPolishRun` state/events/claims.
+- [ ] model-frontend workflow for new rich flows where justified.
+- [ ] typed critic/repair/memory/TruthPath activities.
+- [ ] explicit iteration/VLM/TruthPath/candidate/repair budgets.
+- [ ] retry/idempotency/fault-injection proof for external side effects.
+- [ ] durability product-value/overhead measurement before making it a mandatory default.
 
 ## Phase 6 — SncSinCore memory
 
-- [ ] ontology/namespaces;
-- [ ] evidence→candidate admission mapper;
-- [ ] `epmemory` embedded start;
-- [ ] bounded ContextPack retrieval;
-- [ ] provenance/conflict/retraction/scope tests;
-- [ ] memory on/off held-out eval;
+**Status: NOT STARTED**
+
+- [ ] ontology/namespaces.
+- [ ] evidence→candidate admission mapper.
+- [ ] embedded `epmemory` start.
+- [ ] bounded ContextPack retrieval.
+- [ ] provenance/conflict/retraction/scope tests.
+- [ ] memory on/off held-out eval.
 - [ ] `memoryv2` only after scale threshold.
 
 ## Phase 7 — SkillState bounded reasoning
 
-- [ ] typed UiUx skill state/patch schema;
-- [ ] project Axiom/domain state into bounded Σ;
-- [ ] externalize large artifacts by digest;
-- [ ] SncSinCore MemoryPort;
-- [ ] CAS/stale/oscillation gates;
-- [ ] remove implicit long-history replay;
+**Status: NOT STARTED**
+
+- [ ] typed UiUx skill state/patch schema.
+- [ ] project Axiom/domain state into bounded Σ.
+- [ ] externalize large artifacts by digest.
+- [ ] SncSinCore MemoryPort.
+- [ ] CAS/stale/oscillation gates.
+- [ ] remove implicit long-history replay.
 - [ ] token/task-success benchmarks.
 
 ## Phase 8 — Progressive local visual critic
 
-- page→section→component crops;
-- model-neutral local provider;
-- edge model first;
-- stronger model only on uncertainty;
-- structured grounded output;
-- relevant SncSinCore memory only when useful;
-- renderer/fidelity provenance retained.
+**Status: NOT STARTED BEYOND RUBRIC/EVIDENCE CONTRACTS**
+
+- [ ] page→section→component crops.
+- [ ] model-neutral local provider.
+- [ ] edge model first.
+- [ ] stronger model only on uncertainty.
+- [ ] structured grounded output.
+- [ ] relevant SncSinCore memory only when useful.
+- [ ] renderer/fidelity provenance retained.
 
 ## Phase 9 — Relative design search
 
-- baseline;
-- candidate A/B when justified;
-- per-axis pairwise comparison;
-- hard correctness/accessibility constraints;
-- select/merge;
-- re-render and independently verify.
+**Status: NOT STARTED**
+
+- [ ] baseline abstraction.
+- [ ] candidate A/B when justified.
+- [ ] per-axis pairwise comparison.
+- [ ] hard correctness/accessibility constraints.
+- [ ] select/merge.
+- [ ] re-render and independently verify.
 
 Absolute aggregate score is never the sole completion gate.
 
 ## Phase 10 — Interaction playthrough
 
-Scenarios cover navigation, menus, dialogs, forms, loading/error, hover/focus/touch, resize, theme and keyboard-only flows. FastBrowser handles warm/local flows; TruthPath proves clean/cross-browser flows.
+**Status: NOT STARTED AS A COMPLETE SCENARIO SYSTEM**
+
+Scenarios eventually cover navigation, menus, dialogs, forms, loading/error, hover/focus/touch, resize, theme and keyboard-only flows. FastBrowser handles warm/local flows; TruthPath proves clean/cross-browser flows.
 
 ## Phase 11 — Cross-browser/perturbation
 
-Fast loop: current L1/L2 target.
+**Status: NOT STARTED**
 
 Milestone: representative responsive matrix + selected TruthPath.
 
@@ -1118,71 +1151,79 @@ Perturbations include arbitrary widths, long RU/DE text, missing/slow media/font
 
 ## Phase 12 — Controlled evolution with SkillState
 
-- [ ] collect candidate heuristics only from admitted evidence;
-- [ ] immutable candidate skill versions;
-- [ ] replay corpus;
-- [ ] shadow/current-vs-candidate eval;
-- [ ] design improvement + non-regression + latency/token gates;
-- [ ] authorized promotion;
+**Status: NOT STARTED**
+
+- [ ] candidate heuristics only from admitted evidence.
+- [ ] immutable candidate skill versions.
+- [ ] replay corpus.
+- [ ] shadow/current-vs-candidate eval.
+- [ ] design improvement + non-regression + latency/token gates.
+- [ ] authorized promotion.
 - [ ] rollback validation.
 
 ## Phase 13 — DeepSearch research plane
 
-- [ ] optional sidecar/feature flag;
-- [ ] bounded `Researcher` port;
-- [ ] source/provenance admission;
-- [ ] DeepSearch→SncSinCore path;
-- [ ] cache/staleness policy;
-- [ ] optional periodic/manual Axiom research workflow;
+**Status: NOT STARTED / OPTIONAL**
+
+- [ ] optional sidecar/feature flag.
+- [ ] bounded `Researcher` port.
+- [ ] source/provenance admission.
+- [ ] DeepSearch→SncSinCore path.
+- [ ] cache/staleness policy.
+- [ ] optional periodic/manual Axiom research workflow.
 - [ ] no dependency of hot loop on research availability.
 
 ## Phase 14 — Adversarial evals
 
-Inject controlled defects:
+**Status: NOT STARTED AS A SYSTEMATIC HARNESS**
 
-- CTA shift;
-- contrast reduction;
-- heading hierarchy collapse;
-- spacing flattening;
-- image clipping/crop damage;
-- focus loss;
-- horizontal overflow;
-- tiny targets;
-- dark-theme mismatch;
-- card soup/chrome excess;
-- WGGo fidelity traps: unsupported CSS, fonts, SVG, browser APIs, canvas/WebGL, shadow DOM, filters/masks;
-- impact-engine traps: dynamic import, re-export cycle, shared token, CSS cascade, runtime-only component instance, route alias.
+Inject controlled defects including CTA shift, contrast reduction, hierarchy collapse, spacing flattening, clipping/crop damage, focus loss, overflow, tiny targets, dark-theme mismatch, card soup, renderer fidelity traps and impact-engine traps.
 
 Measure detection recall, false positives, localization, severity, repair success, regression, impact false-negative rate, FastRender false PASS/FAIL, parity, latency/cost.
 
 ## Phase 15 — MCP productization
 
-- stable JSON Schemas;
-- bounded deterministic tool outputs;
-- artifacts as resources;
-- stdio local transport;
-- stateless HTTP later;
-- cacheable catalogs;
-- OpenTelemetry;
-- tasks only for genuine long operations with client support.
+**Status: EARLY BASELINE**
+
+- [x] official Go MCP SDK integrated.
+- [x] stdio server baseline.
+- [x] thin protocol adapter boundary.
+- [x] `uiux_get_rubric`.
+- [x] `uiux_evaluate_evidence`.
+- [ ] stable JSON schema contract tests.
+- [ ] `uiux_plan_validation`.
+- [ ] `uiux_capture` routed through canonical runtime.
+- [ ] layout/accessibility inspection tools.
+- [ ] scenario tool.
+- [ ] bounded deterministic outputs.
+- [ ] artifacts as resources.
+- [ ] cacheable catalogs.
+- [ ] OpenTelemetry.
+- [ ] stateless HTTP later when useful.
+- [ ] tasks only for genuine long operations with client support.
 
 ## Phase 16 — Safety/privacy/legal/provenance
 
-- local-first screenshots/DOM;
-- purpose limitation/data minimization;
-- redact secrets/tokens/PII before optional external model;
-- explicit retention;
-- audit external calls;
-- authorized targets only;
-- license/provenance inventory for dependencies/models/renderers;
-- reference designs used for abstract principles, not unauthorized reproduction.
+**Status: POLICY FOUNDATION ONLY**
+
+- [x] local-first architectural rule documented.
+- [x] large binary evidence kept out of canonical inline packet by design.
+- [ ] purpose limitation/data minimization implementation.
+- [ ] redact secrets/tokens/PII before optional external model.
+- [ ] explicit retention policy.
+- [ ] audit external calls.
+- [ ] authorized-target guardrails.
+- [ ] dependency/model/renderer license/provenance inventory.
+- [ ] reference-design provenance policy enforcement.
 
 ## Phase 17 — Optional ecosystem/operational expansion
 
+**Status: DEFERRED BY DESIGN**
+
 Only after activation gates:
 
-- inspect isolated AutoTraceLab graph primitives only if native impact benchmarks reveal a real gap;
-- RepoArk for benchmark/release artifact archival/mirroring;
+- isolated AutoTraceLab graph primitive comparison if the native engine reveals a real gap;
+- RepoArk for benchmark/release archival/mirroring;
 - WebGate for authenticated resilient remote browser/device workers.
 
 None is required for the first production UiUxMaster.
@@ -1191,42 +1232,49 @@ None is required for the first production UiUxMaster.
 
 # 21. Ecosystem implementation sequence E0→E7
 
-This sequence is mandatory because later layers depend on evidence/contracts from earlier layers.
+Later layers still depend on earlier evidence/contracts. Status below reflects current code rather than the original starting point.
 
-## E0 — Compatibility baseline
+## E0 — Compatibility baseline — MOSTLY COMPLETE
 
-1. Freeze benchmark/CI baseline.
-2. Upgrade Go to 1.26+.
-3. Add race CI.
-4. Add dependency/license inventory.
-5. Pin Axiom/SncSinCore/SkillState versions/commits when integration starts.
-6. ADR ecosystem ownership boundaries.
-7. Record that AutoTraceLab is not a required dependency; only isolated graph primitives may later pass an optional reuse gate.
+- [x] Go 1.26+.
+- [x] root race CI.
+- [x] Axiom race CI.
+- [x] runtime/ecosystem ownership ADR.
+- [x] Axiom version pinned in isolated module.
+- [x] AutoTraceLab explicitly non-required.
+- [ ] dependency/license inventory.
+- [ ] persistent benchmark baseline/artifacts.
+- [ ] synchronize subordinate docs/readme.
 
-## E1 — Native UiUxMaster Impact Engine
+## E1 — Native UiUxMaster Impact Engine — IN PROGRESS
 
-1. Define `ImpactResolver`, `ImpactSet`, node/edge kinds and fixtures.
-2. Implement native graph kernel under `internal/impact`.
-3. Add source/import/CSS-token analyzers.
-4. Add reverse indexes + SCC + dirty propagation.
-5. Add route/story/component ownership.
-6. Bind runtime semantic refs.
-7. Integrate router.
-8. Benchmark 1k/10k/100k graphs.
-9. Build false-negative mutation suite.
-10. Only after a stable native baseline, optionally compare isolated AutoTraceLab graph primitives; adopt none unless they clearly win on the defined gates.
+- [x] ImpactSet/resolver/node/edge contracts.
+- [x] native graph kernel.
+- [x] source/import/CSS-token analyzers.
+- [x] reverse adjacency and SCC.
+- [x] conservative unresolved-dependency fallback.
+- [x] runtime binding primitive.
+- [ ] dedicated invalidation policy.
+- [ ] route/story ingestion.
+- [ ] automatic runtime-ref feedback.
+- [ ] canonical router integration.
+- [ ] 1k/10k/100k recorded gates.
+- [ ] false-negative mutation suite.
 
-## E2 — Axiom control plane
+## E2 — Axiom control plane — P0 IMPLEMENTED / RICH FLOW PENDING
 
-1. `DesignPolishRun` state/events/claims.
-2. Typed activities over existing ports.
-3. Keep renderer/data primitives direct.
-4. Budgets/cancellation/idempotency.
-5. In-memory representative workflows.
-6. Durable Pebble only after proven crash-resume need.
-7. Explain/history diagnostics.
+- [x] coarse-grained typed activities.
+- [x] renderer/data primitives remain direct.
+- [x] budgets/cancellation/history.
+- [x] in-memory execution.
+- [x] optional durable execution + recovery test.
+- [x] FastCDP end-to-end adapter.
+- [ ] canonical pipeline integration.
+- [ ] DesignPolishRun.
+- [ ] richer retry/idempotency/fault proofs.
+- [ ] explainability/eval requirements for repair/candidate workflows.
 
-## E3 — SncSinCore memory
+## E3 — SncSinCore memory — NOT STARTED
 
 1. Ontology/namespaces.
 2. Admission mapper.
@@ -1237,7 +1285,7 @@ This sequence is mandatory because later layers depend on evidence/contracts fro
 7. Memory on/off eval.
 8. `memoryv2` only after measured threshold.
 
-## E4 — SkillState bounded state
+## E4 — SkillState bounded state — NOT STARTED
 
 1. Typed state/patch.
 2. Projection from Axiom/domain state.
@@ -1247,7 +1295,7 @@ This sequence is mandatory because later layers depend on evidence/contracts fro
 6. Replace long-history replay.
 7. Token/task-success benchmark.
 
-## E5 — Controlled evolution
+## E5 — Controlled evolution — NOT STARTED
 
 1. Candidate heuristics from repeated admitted evidence.
 2. Immutable candidate skill versions.
@@ -1257,7 +1305,7 @@ This sequence is mandatory because later layers depend on evidence/contracts fro
 6. Authorized promotion.
 7. Validated rollback.
 
-## E6 — DeepSearch adapter
+## E6 — DeepSearch adapter — NOT STARTED / OPTIONAL
 
 1. Optional feature/sidecar.
 2. Bounded research port.
@@ -1266,18 +1314,16 @@ This sequence is mandatory because later layers depend on evidence/contracts fro
 5. Cache/staleness.
 6. Periodic/manual research workflow only if useful.
 
-## E7 — Ecosystem hardening
+## E7 — Ecosystem hardening — FUTURE
 
-1. Full race suite.
+1. Full race suite across all added modules.
 2. Fault injection across activities/memory/render/research.
 3. Prove no L0–L2 p95 regression.
 4. Dependency-upgrade compatibility suite.
 5. Privacy/scope isolation.
 6. License/provenance report.
 7. End-to-end bare-vs-integrated held-out eval.
-8. Re-review every optional external dependency and remove any that does not still justify its complexity.
-
-Full detailed contracts and tests live in [`docs/ECOSYSTEM_INTEGRATION_PROGRAM.md`](docs/ECOSYSTEM_INTEGRATION_PROGRAM.md); that document must preserve the same ownership boundary: the UiUxMaster impact engine is native, while AutoTraceLab is optional/reference-only.
+8. Remove integrations that no longer justify complexity.
 
 ---
 
@@ -1299,14 +1345,25 @@ Full detailed contracts and tests live in [`docs/ECOSYSTEM_INTEGRATION_PROGRAM.m
 - warm validation rate;
 - cold launches/navigations per edit;
 - FastRender/TruthPath parity;
-- false PASS/FAIL.
+- false PASS/FAIL;
+- reset frequency by reset level;
+- stale-page detection/recovery success.
+
+## Canonical pipeline
+
+- % validation runs using ImpactSet-derived scope;
+- % runs routed without hard-coded renderer choice;
+- whole-site fallback frequency and reason;
+- time from source change to actionable evidence;
+- scope false-negative rate.
 
 ## Axiom
 
 - replay/recovery success;
 - duplicate side effects = 0;
 - explain/history completeness;
-- no measurable hot-path regression.
+- no measurable hot-path regression;
+- canonical-pipeline usage rather than FastCDP-specific bypass.
 
 ## SncSinCore
 
@@ -1330,7 +1387,7 @@ Full detailed contracts and tests live in [`docs/ECOSYSTEM_INTEGRATION_PROGRAM.m
 
 ## Whole system
 
-- UI polish success/preference vs baseline;
+- UI polish preference/success vs baseline;
 - regression escape rate;
 - VLM calls per solved defect;
 - TruthPath escalations per edit;
@@ -1351,8 +1408,10 @@ Full detailed contracts and tests live in [`docs/ECOSYSTEM_INTEGRATION_PROGRAM.m
 - No duplicated full history/evidence across Axiom, SncSinCore and SkillState; use digests/references and plane-specific projections.
 - No VLM opinion promoted directly into a skill.
 - No RepoArk/WebGate runtime dependency before activation gates.
-- No renderer becomes default without benchmark/fidelity proof.
+- No renderer becomes the permanent default without comparative benchmark/fidelity proof.
 - No integration is accepted without before/after eval evidence.
+- No checklist item is marked complete merely because a type/function exists; it must satisfy its product-path exit condition.
+- No duplicate planner/router architectures: converge `evidenceplan`, impact/invalidation and `engine.RouteValidation` into one coherent policy path rather than growing parallel decision systems.
 
 ---
 
@@ -1360,6 +1419,8 @@ Full detailed contracts and tests live in [`docs/ECOSYSTEM_INTEGRATION_PROGRAM.m
 
 A run is not complete merely because a screenshot matches baseline, FastRender passes or a VLM says “looks good”. As applicable:
 
+- source change resolved to an explicit conservative validation scope;
+- selected evidence tier is explainable by capabilities/fidelity/risk;
 - no blocking runtime/layout/accessibility findings;
 - intended interactions pass;
 - responsive target set passes;
@@ -1368,7 +1429,7 @@ A run is not complete merely because a screenshot matches baseline, FastRender p
 - no unexplained visual regression;
 - evidence retains renderer/fidelity/provenance digest;
 - milestone/release perturbations pass;
-- FastRender-only PASS is inside calibrated evidence class or escalated;
+- FastRender-only PASS is inside a calibrated evidence class or escalated;
 - workflow/history/evidence references are reconstructable;
 - long-term memory admission is separate from completion.
 
@@ -1377,47 +1438,111 @@ A run is not complete merely because a screenshot matches baseline, FastRender p
 # 25. Definition of Done — ultra-fast loop
 
 - reproducible benchmark harness committed;
+- benchmark results retained as artifacts/history with environment metadata;
 - p50/p95/p99 recorded by tier;
 - renderer/browser processes reused;
-- normal source edit does not navigate;
-- native UiUxMaster impact engine bounds validation scope;
+- normal source edit does not navigate/relaunch;
+- native Impact Engine + invalidation policy bound validation scope;
 - impact false-negative mutation suite passes;
-- WGGo enabled only for calibrated classes;
+- L1 enabled only for calibrated classes;
 - direct RGBA path avoids PNG round trips;
 - resident Chromium provides warm Blink truth;
+- recovery ladder is actually executable, not only modeled;
 - Playwright TruthPath calibrates clean/cross-browser cases;
-- each evidence result reports latency/fidelity/provenance;
+- each evidence result reports end-to-end latency/fidelity/provenance/scope;
+- Axiom/MCP consume the same canonical pipeline rather than vendor-specific bypasses;
 - ecosystem integrations do not degrade L0–L2 p95 beyond explicit budget;
-- `go test ./...`, `go test -race ./...` and `go vet ./...` green.
+- `go test ./...`, `go test -race ./...` and `go vet ./...` remain green.
 
 ---
 
 # 26. Immediate next execution slice
 
-Execute in this order:
+Execute in this order. Do not start SncSinCore/SkillState/DeepSearch before the canonical validation pipeline and TruthPath foundations are stable unless a blocking dependency proves otherwise.
 
-1. **E0:** upgrade UiUxMaster to Go 1.26+ and add race CI; record baseline before dependency integration.
-2. Add ADR for runtime tiers + ecosystem ownership boundaries, explicitly documenting native ownership of the impact engine.
-3. Build benchmark harness before locking WGGo/chromedp/Rod choices.
-4. Define native `internal/impact` contracts, node/edge model and frontend-specific fixtures.
-5. Implement minimal native graph kernel: forward/reverse indexes, SCC, dirty propagation, deterministic snapshots.
-6. Add JS/TS/template import, CSS module and CSS custom-property analyzers.
-7. Add route/story/component ownership mapping and conservative fallback policy.
-8. Add `internal/fidelity` capability/risk scanner.
-9. Add renderer-neutral `internal/runtime/fastrender` interface.
-10. Benchmark WGGo on static/grid/dashboard/SPA/SVG/100–10k-node fixtures.
-11. Implement direct RGBA crop/diff if WGGo qualifies.
-12. Implement resident `chrome-headless-shell` + direct-CDP benchmark path.
-13. Add HMR/render epoch and remove hot-loop reload/networkidle.
-14. Bind native impact nodes to runtime semantic refs and route validation by `ImpactSet`.
-15. Add deterministic overflow/clip/overlap checks.
-16. Build impact false-negative mutation tests and benchmark 1k/10k/100k graphs.
-17. **Optional only after step 16:** inspect isolated AutoTraceLab SCC/DAG/incremental primitives and compare against the native baseline; do not adopt by default.
-18. Only after the data plane is measured stable, integrate **Axiom** `DesignPolishRun` control plane.
-19. Define **SncSinCore** design-memory ontology/admission and start embedded `epmemory`.
-20. Add **SkillState** bounded reasoning projection + SncSinCore MemoryPort.
-21. Build local semantic critic and memory-assisted critique eval.
-22. Build controlled skill-evolution replay/shadow gates.
-23. Add **DeepSearch** as optional research sidecar with SncSinCore admission.
-24. Build FastRender/FastBrowser/TruthPath parity corpus and full adversarial evals.
-25. Run bare-vs-integrated end-to-end benchmark; keep each integration only if it improves the intended metric without unacceptable latency/complexity regression.
+## P0 — Converge the existing execution substrate
+
+1. **Synchronize documentation terminology**: update `docs/ARCHITECTURE.md`, `docs/ULTRA_FAST_VISUAL_LOOP.md`, `README.md` and open FastPath issue status so this master plan is the unambiguous source of truth for L0–L4 and current implementation state.
+2. Add `internal/invalidation` with explicit `ImpactSet → ValidationScope` policy, including local/shared/global token, SCC, unknown/dynamic, critical-route and user-forced widening rules.
+3. Define one protocol-independent `ValidationRequest`/`ValidationScope` orchestration boundary. Avoid creating a second router or planner.
+4. Wire changed files/project index → `ImpactResolver.ApplyChanges` → `ValidationScope`.
+5. Converge `internal/evidenceplan` and `engine.RouteValidation` so evidence shape, fidelity and renderer tier are decided by one coherent policy path rather than parallel planners.
+6. Add a runtime dispatcher/collector boundary that executes L0/L1/L2 according to `RouteDecision` without exposing WGGo/FastCDP vendor choice to callers.
+7. Wire WGGo RGBA + `internal/visualdiff` into the L1 path. Until geometry/styles become available, keep L1 geometry/style PASS prohibited and escalate to L2.
+8. Wire FastCDP collection to ImpactSet-derived regions/pages and preserve explicit epoch/diagnostic watermarks.
+9. Add an end-to-end integration fixture proving:
+
+   ```text
+   changed source/CSS token
+   → ImpactSet
+   → bounded ValidationScope
+   → fidelity route
+   → WGGo or FastCDP
+   → evidence.Packet
+   → verifier
+   → engine decision
+   ```
+
+10. Expand telemetry from L2-only timing to end-to-end impact/invalidation/fidelity/route/render/verify totals.
+
+## P0 — Finish FastPath engineering gates
+
+11. Add impact false-negative mutation/adversarial tests for dynamic import, cycles, shared tokens, CSS cascade, route alias, stale runtime refs and runtime-only component instances.
+12. Record 1k/10k/100k impact benchmarks and allocation gates.
+13. Benchmark current raw CDP against `chromedp/cdproto`, Rod and warm Playwright on the same fixtures. Keep raw CDP only if it remains the best overall fit for latency, allocations, complexity and capability.
+14. Turn the existing recovery policy into an executable recovery controller for component → page → context → browser resets; add fault-injection tests.
+15. Add broader stale-state health checks for unexpected navigation/origin, broken epoch bridge, invalid context/session, stale service-worker/cache where observable, and bounded resource growth.
+16. Persist benchmark results as CI artifacts/history instead of `/tmp`-only output.
+
+## P1 — Build TruthPath and calibration
+
+17. Implement `internal/runtime/playwright` behind a narrow vendor-neutral worker/adapter contract.
+18. Implement clean-state capture: screenshot, ARIA, errors, failed requests, fonts and semantic/layout evidence mapped into the same `evidence.Packet`.
+19. Implement scenario actions and deterministic baseline controls.
+20. Add Chromium parity fixtures first, then selected Firefox/WebKit coverage.
+21. Build the L1/L2/L3 calibration corpus and define which evidence classes may legally PASS on L1/L2 without L3.
+22. Add protected baseline/artifact references and semantic visual-diff localization.
+
+## P1 — Expose the canonical pipeline to control/MCP
+
+23. Refactor the Axiom adapter so `CollectVerify` invokes the canonical validation pipeline rather than a FastCDP-specific planning bypass.
+24. Add `uiux_plan_validation` and `uiux_capture` MCP tools over the same domain path; then add layout/accessibility inspection tools.
+25. Add MCP schema contract tests and bounded artifact/resource handling.
+
+## P2 — Close the design loop
+
+26. Complete Phase 1 Design Intelligence domain types/rules/profiles.
+27. Implement progressive local semantic critic with structured grounded findings.
+28. Add relative baseline/candidate comparison with hard correctness/accessibility constraints.
+29. Evolve Axiom from the P0 linear validation flow to `DesignPolishRun` / candidate comparison / TruthPath calibration workflows.
+30. Add host repair application and independent re-verification.
+
+## P3 — Memory, bounded reasoning and research
+
+31. Define SncSinCore design-memory ontology/admission and start embedded `epmemory`.
+32. Add SkillState bounded reasoning projection + SncSinCore MemoryPort.
+33. Build replay/shadow/non-regression gates for controlled skill evolution.
+34. Add DeepSearch only as an optional research sidecar with provenance admission through SncSinCore.
+35. Run bare-vs-integrated end-to-end held-out benchmarks and remove any integration that does not improve its intended metric enough to justify latency/complexity/dependency cost.
+
+---
+
+# 27. Current milestone definition
+
+The **current milestone** is not “add more subsystems”. It is:
+
+> **Make the already-implemented Impact, Fidelity, WGGo, FastCDP, Verifier, Engine and Axiom/MCP boundaries converge into one measured canonical validation pipeline, then add TruthPath as its independent correctness/calibration oracle.**
+
+Milestone exit evidence:
+
+- one changed-file integration test demonstrates bounded scope → routing → evidence → verification;
+- no parallel planner/router ambiguity remains;
+- normal warm local validation uses no browser relaunch/navigation;
+- ImpactSet participates in every local validation unless explicitly bypassed with a documented reason;
+- L1 cannot silently prove unsupported geometry/styles;
+- L2 recovery is executable and fault-tested;
+- driver selection has comparative measurements;
+- benchmark artifacts are retained;
+- TruthPath can independently reproduce/calibrate at least one representative L2 fixture;
+- Axiom and MCP invoke the same protocol-independent pipeline;
+- root and Axiom CI stay green under test/race/vet.
