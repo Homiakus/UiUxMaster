@@ -19,6 +19,15 @@ type Rect struct {
 	Height float64 `json:"height"`
 }
 
+// DocumentMetrics captures Blink's own document-space metrics instead of
+// reconstructing viewport overflow from the widest observed element.
+type DocumentMetrics struct {
+	FrameID       string  `json:"frame_id,omitempty"`
+	URL           string  `json:"url,omitempty"`
+	ContentWidth  float64 `json:"content_width"`
+	ContentHeight float64 `json:"content_height"`
+}
+
 // ElementRef is a stable-enough reference to a rendered element for one
 // validation run. Runtime adapters should prefer semantic role/name/test-id
 // information over brittle CSS selectors where possible.
@@ -117,19 +126,20 @@ type RuntimeLatency struct {
 // deterministic verifiers, critics, the engine, MCP tools, CI and future
 // persistent design memory.
 type Packet struct {
-	RunID          string          `json:"run_id"`
-	URL            string          `json:"url,omitempty"`
-	Scenario       string          `json:"scenario,omitempty"`
-	Epoch          uint64          `json:"epoch,omitempty"`
-	Viewport       Viewport        `json:"viewport"`
-	Renderer       RendererRef     `json:"renderer"`
-	Latency        RuntimeLatency  `json:"latency"`
-	Elements       []ElementRef    `json:"elements,omitempty"`
-	RuntimeIssues  []RuntimeIssue  `json:"runtime_issues,omitempty"`
-	VisualRegions  []VisualRegion  `json:"visual_regions,omitempty"`
-	VisualFindings []VisualFinding `json:"visual_findings,omitempty"`
-	Pixels         *PixelEvidence  `json:"pixels,omitempty"`
-	AriaSnapshot   string          `json:"aria_snapshot,omitempty"`
-	ScreenshotPath string          `json:"screenshot_path,omitempty"`
-	DiffPath       string          `json:"diff_path,omitempty"`
+	RunID          string            `json:"run_id"`
+	URL            string            `json:"url,omitempty"`
+	Scenario       string            `json:"scenario,omitempty"`
+	Epoch          uint64            `json:"epoch,omitempty"`
+	Viewport       Viewport          `json:"viewport"`
+	Renderer       RendererRef       `json:"renderer"`
+	Latency        RuntimeLatency    `json:"latency"`
+	Documents      []DocumentMetrics `json:"documents,omitempty"`
+	Elements       []ElementRef      `json:"elements,omitempty"`
+	RuntimeIssues  []RuntimeIssue    `json:"runtime_issues,omitempty"`
+	VisualRegions  []VisualRegion    `json:"visual_regions,omitempty"`
+	VisualFindings []VisualFinding   `json:"visual_findings,omitempty"`
+	Pixels         *PixelEvidence    `json:"pixels,omitempty"`
+	AriaSnapshot   string            `json:"aria_snapshot,omitempty"`
+	ScreenshotPath string            `json:"screenshot_path,omitempty"`
+	DiffPath       string            `json:"diff_path,omitempty"`
 }
