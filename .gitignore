@@ -1,0 +1,55 @@
+# Binaries and executables
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+bin/
+dist/
+
+# Test artifacts
+*.test
+*.out
+profile.out
+coverage.out
+coverage.html
+pprof/
+
+# Go workspace and caches
+.cache/
+
+# Node / Web / Playwright artifacts
+node_modules/
+test-results/
+playwright-report/
+.playwright/
+
+# Browser temporary and scratch profiles
+temp/
+tmp/
+scratch/
+screenshots/
+*.log
+
+# Epistemic / Axiom state stores
+.axiom_store/
+.ep_memory_store/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# IDE and Editor files
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+*~
