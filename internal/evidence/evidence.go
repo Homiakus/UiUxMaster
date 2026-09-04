@@ -48,13 +48,51 @@ type ElementRef struct {
 	SectionID     string            `json:"section_id,omitempty"`
 }
 
+// AccessibilityNode is the compact protocol-independent projection of a
+// browser accessibility node. BackendNodeID correlates it with ElementRef.
+type AccessibilityNode struct {
+	ID               string            `json:"id"`
+	ParentID         string            `json:"parent_id,omitempty"`
+	ChildIDs         []string          `json:"child_ids,omitempty"`
+	BackendNodeID    int64             `json:"backend_node_id,omitempty"`
+	FrameID          string            `json:"frame_id,omitempty"`
+	Ignored          bool              `json:"ignored"`
+	IgnoredReasons   []string          `json:"ignored_reasons,omitempty"`
+	Role             string            `json:"role,omitempty"`
+	Name             string            `json:"name,omitempty"`
+	Description      string            `json:"description,omitempty"`
+	Value            string            `json:"value,omitempty"`
+	Properties       map[string]string `json:"properties,omitempty"`
+}
+
+type FontFaceEvidence struct {
+	Family  string `json:"family,omitempty"`
+	Style   string `json:"style,omitempty"`
+	Weight  string `json:"weight,omitempty"`
+	Stretch string `json:"stretch,omitempty"`
+	Status  string `json:"status,omitempty"`
+}
+
+type FontEvidence struct {
+	Status    string             `json:"status,omitempty"`
+	Faces     []FontFaceEvidence `json:"faces,omitempty"`
+	Total     int                `json:"total,omitempty"`
+	Truncated bool               `json:"truncated,omitempty"`
+}
+
+type DiagnosticsEvidence struct {
+	Complete       bool     `json:"complete"`
+	DroppedMethods []string `json:"dropped_methods,omitempty"`
+}
+
 // RuntimeIssue is deterministic browser/runtime evidence such as a page error,
 // failed request, layout overflow, missing font, or accessibility-tree anomaly.
 type RuntimeIssue struct {
-	Code       string   `json:"code"`
-	Message    string   `json:"message"`
-	Severity   Severity `json:"severity"`
-	ElementIDs []string `json:"element_ids,omitempty"`
+	Code       string            `json:"code"`
+	Message    string            `json:"message"`
+	Severity   Severity          `json:"severity"`
+	ElementIDs []string          `json:"element_ids,omitempty"`
+	Details    map[string]string `json:"details,omitempty"`
 }
 
 // VisualRegion identifies a screenshot region that changed or requires
@@ -116,31 +154,37 @@ type PixelEvidence struct {
 // RuntimeLatency keeps the L2 hot-path breakdown visible without coupling the
 // canonical packet to Go time.Duration serialization details.
 type RuntimeLatency struct {
-	WaitEpochMS float64 `json:"wait_epoch_ms,omitempty"`
-	SnapshotMS  float64 `json:"snapshot_ms,omitempty"`
-	PixelsMS    float64 `json:"pixels_ms,omitempty"`
-	TotalMS     float64 `json:"total_ms,omitempty"`
-	Retries     int     `json:"retries,omitempty"`
+	WaitEpochMS     float64 `json:"wait_epoch_ms,omitempty"`
+	SnapshotMS      float64 `json:"snapshot_ms,omitempty"`
+	PixelsMS        float64 `json:"pixels_ms,omitempty"`
+	AccessibilityMS float64 `json:"accessibility_ms,omitempty"`
+	FontsMS         float64 `json:"fonts_ms,omitempty"`
+	DiagnosticsMS   float64 `json:"diagnostics_ms,omitempty"`
+	TotalMS         float64 `json:"total_ms,omitempty"`
+	Retries         int     `json:"retries,omitempty"`
 }
 
 // Packet is the canonical evidence envelope passed between browser adapters,
 // deterministic verifiers, critics, the engine, MCP tools, CI and future
 // persistent design memory.
 type Packet struct {
-	RunID          string            `json:"run_id"`
-	URL            string            `json:"url,omitempty"`
-	Scenario       string            `json:"scenario,omitempty"`
-	Epoch          uint64            `json:"epoch,omitempty"`
-	Viewport       Viewport          `json:"viewport"`
-	Renderer       RendererRef       `json:"renderer"`
-	Latency        RuntimeLatency    `json:"latency"`
-	Documents      []DocumentMetrics `json:"documents,omitempty"`
-	Elements       []ElementRef      `json:"elements,omitempty"`
-	RuntimeIssues  []RuntimeIssue    `json:"runtime_issues,omitempty"`
-	VisualRegions  []VisualRegion    `json:"visual_regions,omitempty"`
-	VisualFindings []VisualFinding   `json:"visual_findings,omitempty"`
-	Pixels         *PixelEvidence    `json:"pixels,omitempty"`
-	AriaSnapshot   string            `json:"aria_snapshot,omitempty"`
-	ScreenshotPath string            `json:"screenshot_path,omitempty"`
-	DiffPath       string            `json:"diff_path,omitempty"`
+	RunID          string              `json:"run_id"`
+	URL            string              `json:"url,omitempty"`
+	Scenario       string              `json:"scenario,omitempty"`
+	Epoch          uint64              `json:"epoch,omitempty"`
+	Viewport       Viewport            `json:"viewport"`
+	Renderer       RendererRef         `json:"renderer"`
+	Latency        RuntimeLatency      `json:"latency"`
+	Documents      []DocumentMetrics   `json:"documents,omitempty"`
+	Elements       []ElementRef        `json:"elements,omitempty"`
+	Accessibility  []AccessibilityNode `json:"accessibility,omitempty"`
+	Fonts          *FontEvidence       `json:"fonts,omitempty"`
+	Diagnostics    *DiagnosticsEvidence `json:"diagnostics,omitempty"`
+	RuntimeIssues  []RuntimeIssue      `json:"runtime_issues,omitempty"`
+	VisualRegions  []VisualRegion      `json:"visual_regions,omitempty"`
+	VisualFindings []VisualFinding     `json:"visual_findings,omitempty"`
+	Pixels         *PixelEvidence      `json:"pixels,omitempty"`
+	AriaSnapshot   string              `json:"aria_snapshot,omitempty"`
+	ScreenshotPath string              `json:"screenshot_path,omitempty"`
+	DiffPath       string              `json:"diff_path,omitempty"`
 }
