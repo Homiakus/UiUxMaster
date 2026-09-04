@@ -56,7 +56,7 @@ func TestCaptureSnapshotProjectsWhitelistedGeometryStylesAndAttributes(t *testin
 				NodeName:      []int{2, 3},
 				NodeValue:     []int{4, 4},
 				BackendNodeID: []int64{1, 77},
-				Attributes:    [][]int{nil, {8, 9, 10, 11, 12, 13}},
+				Attributes:    [][]int{nil, []int{8, 9, 10, 11, 12, 13}},
 			},
 			Layout: captureLayout{
 				NodeIndex: []int{1},
