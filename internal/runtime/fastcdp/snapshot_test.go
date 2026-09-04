@@ -56,7 +56,8 @@ func TestCaptureSnapshotProjectsWhitelistedGeometryStylesAndAttributes(t *testin
 				NodeName:      []int{2, 3},
 				NodeValue:     []int{4, 4},
 				BackendNodeID: []int64{1, 77},
-				Attributes:    [][]int{nil, []int{8, 9, 10, 11, 12, 13}},
+				Attributes:    [][]int{nil, {8, 9, 10, 11, 12, 13}},
+				IsClickable:   rareBooleanData{Index: []int{1}},
 			},
 			Layout: captureLayout{
 				NodeIndex: []int{1},
@@ -87,6 +88,9 @@ func TestCaptureSnapshotProjectsWhitelistedGeometryStylesAndAttributes(t *testin
 	}
 	if node.Attributes["role"] != "button" || node.Attributes["aria-label"] != "Publish changes" || node.Attributes["data-testid"] != "publish" {
 		t.Fatalf("attributes = %#v", node.Attributes)
+	}
+	if !node.Clickable {
+		t.Fatal("clickable flag was not projected")
 	}
 }
 
