@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-func TestCaptureSnapshotProjectsWhitelistedGeometryAndStyles(t *testing.T) {
+func TestCaptureSnapshotProjectsWhitelistedGeometryStylesAndAttributes(t *testing.T) {
 	transport := newFakeTransport()
 	conn := NewConnection(transport)
 	defer conn.Close()
@@ -41,7 +41,10 @@ func TestCaptureSnapshotProjectsWhitelistedGeometryAndStyles(t *testing.T) {
 	}
 
 	raw := captureSnapshotResult{
-		Strings: []string{"https://example.test/", "frame-1", "#document", "DIV", "", "Hello", "block", "relative"},
+		Strings: []string{
+			"https://example.test/", "frame-1", "#document", "BUTTON", "", "Publish", "block", "relative",
+			"role", "button", "aria-label", "Publish changes", "data-testid", "publish",
+		},
 		Documents: []captureDocument{{
 			DocumentURL:   0,
 			FrameID:       1,
@@ -53,6 +56,7 @@ func TestCaptureSnapshotProjectsWhitelistedGeometryAndStyles(t *testing.T) {
 				NodeName:      []int{2, 3},
 				NodeValue:     []int{4, 4},
 				BackendNodeID: []int64{1, 77},
+				Attributes:    [][]int{nil, {8, 9, 10, 11, 12, 13}},
 			},
 			Layout: captureLayout{
 				NodeIndex: []int{1},
@@ -72,7 +76,7 @@ func TestCaptureSnapshotProjectsWhitelistedGeometryAndStyles(t *testing.T) {
 		t.Fatalf("unexpected snapshot: %#v", result.snapshot)
 	}
 	node := result.snapshot.Documents[0].Nodes[0]
-	if node.BackendNodeID != 77 || node.Name != "DIV" || node.Text != "Hello" {
+	if node.BackendNodeID != 77 || node.Name != "BUTTON" || node.Text != "Publish" {
 		t.Fatalf("unexpected node identity: %#v", node)
 	}
 	if node.Bounds != (Rect{X: 10, Y: 20, Width: 100, Height: 40}) {
@@ -80,6 +84,17 @@ func TestCaptureSnapshotProjectsWhitelistedGeometryAndStyles(t *testing.T) {
 	}
 	if node.Styles["display"] != "block" || node.Styles["position"] != "relative" {
 		t.Fatalf("styles = %#v", node.Styles)
+	}
+	if node.Attributes["role"] != "button" || node.Attributes["aria-label"] != "Publish changes" || node.Attributes["data-testid"] != "publish" {
+		t.Fatalf("attributes = %#v", node.Attributes)
+	}
+}
+
+func TestProjectAttributesIgnoresMalformedTail(t *testing.T) {
+	stringsTable := []string{"ID", "hero", "orphan"}
+	attrs := projectAttributes(stringsTable, []int{0, 1, 2})
+	if !reflect.DeepEqual(attrs, map[string]string{"id": "hero"}) {
+		t.Fatalf("attributes = %#v", attrs)
 	}
 }
 
