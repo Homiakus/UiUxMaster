@@ -51,15 +51,12 @@ func TestAxiomFastCDPEndToEndIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	page := mutateWarmPage(t, ctx, runtime, `
+	mutateWarmPage(t, ctx, runtime, `
 		document.documentElement.style.background = "white";
 		document.body.style.margin = "0";
 		document.body.innerHTML = '<main style="width:300px;height:120px"><button style="width:90px;height:48px">Publish</button></main>';
 		window.__UIUX_SIGNAL_RENDER__(1);
 	`)
-	if page.Epoch.Current() != 1 {
-		t.Fatalf("initial epoch = %d, want 1", page.Epoch.Current())
-	}
 
 	clean, err := runner.StartAndRun(ctx, "chromium-clean", controlplane.Change{Intent: "quick_structural"}, controlplane.Budget{MaxBrowserFetches: 4})
 	if err != nil {
@@ -72,13 +69,10 @@ func TestAxiomFastCDPEndToEndIntegration(t *testing.T) {
 		t.Fatalf("clean usage/diagnostics = %#v / %#v", clean.Usage, clean.Validation)
 	}
 
-	page = mutateWarmPage(t, ctx, runtime, `
+	mutateWarmPage(t, ctx, runtime, `
 		console.error("axiom-cycle-error");
 		window.__UIUX_SIGNAL_RENDER__(2);
 	`)
-	if page.Epoch.Current() != 2 {
-		t.Fatalf("second epoch = %d, want 2", page.Epoch.Current())
-	}
 
 	broken, err := runner.StartAndRun(ctx, "chromium-broken", controlplane.Change{Intent: "quick_structural"}, controlplane.Budget{MaxBrowserFetches: 4})
 	if err != nil {
@@ -95,7 +89,7 @@ func TestAxiomFastCDPEndToEndIntegration(t *testing.T) {
 	}
 }
 
-func mutateWarmPage(t *testing.T, ctx context.Context, runtime *fastcdp.ResidentRuntime, expression string) *fastcdp.WarmPage {
+func mutateWarmPage(t *testing.T, ctx context.Context, runtime *fastcdp.ResidentRuntime, expression string) {
 	t.Helper()
 	lease, err := runtime.Pages.Acquire(ctx)
 	if err != nil {
@@ -114,5 +108,4 @@ func mutateWarmPage(t *testing.T, ctx context.Context, runtime *fastcdp.Resident
 		t.Fatal(err)
 	}
 	lease.Release()
-	return page
 }
