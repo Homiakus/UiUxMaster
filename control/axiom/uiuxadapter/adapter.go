@@ -41,7 +41,7 @@ func (a *Adapter) CollectVerify(ctx context.Context, change controlplane.Change,
 	}
 	policy := a.Policy
 	verifier.ApplyDeterministic(&packet, policy)
-	report := engine.Evaluate(packet)
+	report := engine.EvaluateForPlan(packet, plan)
 
 	diagnosticsComplete := packet.Diagnostics != nil && packet.Diagnostics.Complete
 	return controlplane.ValidationResult{
