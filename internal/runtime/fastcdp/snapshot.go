@@ -28,6 +28,7 @@ type SnapshotNode struct {
 	Text          string
 	Bounds        Rect
 	Styles        map[string]string
+	Attributes    map[string]string
 }
 
 // DocumentSnapshot contains only fields needed by impact correlation and
@@ -52,11 +53,11 @@ type SnapshotOptions struct {
 }
 
 type captureSnapshotParams struct {
-	ComputedStyles                  []string `json:"computedStyles"`
-	IncludePaintOrder               bool     `json:"includePaintOrder"`
-	IncludeDOMRects                 bool     `json:"includeDOMRects"`
-	IncludeBlendedBackgroundColors  bool     `json:"includeBlendedBackgroundColors,omitempty"`
-	IncludeTextColorOpacities       bool     `json:"includeTextColorOpacities,omitempty"`
+	ComputedStyles                 []string `json:"computedStyles"`
+	IncludePaintOrder              bool     `json:"includePaintOrder"`
+	IncludeDOMRects                bool     `json:"includeDOMRects"`
+	IncludeBlendedBackgroundColors bool     `json:"includeBlendedBackgroundColors,omitempty"`
+	IncludeTextColorOpacities      bool     `json:"includeTextColorOpacities,omitempty"`
 }
 
 type captureSnapshotResult struct {
@@ -65,12 +66,12 @@ type captureSnapshotResult struct {
 }
 
 type captureDocument struct {
-	DocumentURL  int              `json:"documentURL"`
-	FrameID      int              `json:"frameId"`
-	ContentWidth float64          `json:"contentWidth"`
-	ContentHeight float64         `json:"contentHeight"`
-	Nodes        captureNodeTable `json:"nodes"`
-	Layout       captureLayout    `json:"layout"`
+	DocumentURL   int              `json:"documentURL"`
+	FrameID       int              `json:"frameId"`
+	ContentWidth  float64          `json:"contentWidth"`
+	ContentHeight float64          `json:"contentHeight"`
+	Nodes         captureNodeTable `json:"nodes"`
+	Layout        captureLayout    `json:"layout"`
 }
 
 type captureNodeTable struct {
@@ -79,6 +80,7 @@ type captureNodeTable struct {
 	NodeName      []int   `json:"nodeName"`
 	NodeValue     []int   `json:"nodeValue"`
 	BackendNodeID []int64 `json:"backendNodeId"`
+	Attributes    [][]int `json:"attributes"`
 }
 
 type captureLayout struct {
@@ -133,6 +135,7 @@ func projectSnapshot(raw captureSnapshotResult, styleNames []string) (Snapshot, 
 				Value:         stringAt(raw.Strings, intAt(doc.Nodes.NodeValue, nodeIndex, -1)),
 				Text:          stringAt(raw.Strings, intAt(doc.Layout.Text, layoutIndex, -1)),
 				Bounds:        bounds,
+				Attributes:    projectAttributes(raw.Strings, intSliceAt(doc.Nodes.Attributes, nodeIndex)),
 			}
 			if len(styleNames) > 0 {
 				node.Styles = make(map[string]string, len(styleNames))
@@ -141,13 +144,30 @@ func projectSnapshot(raw captureSnapshotResult, styleNames []string) (Snapshot, 
 					if i < len(styleIndexes) {
 						node.Styles[property] = stringAt(raw.Strings, styleIndexes[i])
 					}
-				}
 			}
 			projected.Nodes = append(projected.Nodes, node)
 		}
 		out.Documents = append(out.Documents, projected)
 	}
 	return out, nil
+}
+
+func projectAttributes(stringsTable []string, indexes []int) map[string]string {
+	if len(indexes) < 2 {
+		return nil
+	}
+	attrs := make(map[string]string, len(indexes)/2)
+	for i := 0; i+1 < len(indexes); i += 2 {
+		name := strings.ToLower(strings.TrimSpace(stringAt(stringsTable, indexes[i])))
+		if name == "" {
+			continue
+		}
+		attrs[name] = stringAt(stringsTable, indexes[i+1])
+	}
+	if len(attrs) == 0 {
+		return nil
+	}
+	return attrs
 }
 
 func normalizeStyleWhitelist(styles []string) []string {
