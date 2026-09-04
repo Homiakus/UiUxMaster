@@ -29,17 +29,12 @@ jobs:
         with:
           go-version: '1.26.x'
           cache: true
-          cache-dependency-path: control/axiom/go.mod
+          cache-dependency-path: control/axiom/go.sum
 
-      - name: Canonicalize nested module
-        run: go mod tidy
-
-      - name: Upload canonical module lock
-        uses: actions/upload-artifact@v4
-        with:
-          name: axiom-control-module-lock
-          path: control/axiom/go.sum
-          if-no-files-found: error
+      - name: Verify module lock
+        run: |
+          go mod tidy
+          git diff --exit-code -- go.mod go.sum
 
       - name: Verify Axiom isolation
         run: |
@@ -47,7 +42,7 @@ jobs:
             echo '::error::Axiom leaked into root FastPath go.mod'
             exit 1
           fi
-          go list -m github.com/Homiakus/axiom
+          test "$(go list -m -f '{{.Version}}' github.com/Homiakus/axiom)" = 'v0.0.0-20260902054936-44cea54c5cea'
 
       - name: Test
         run: go test ./...
