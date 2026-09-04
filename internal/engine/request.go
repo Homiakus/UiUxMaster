@@ -18,6 +18,8 @@ import (
 // and the engine orchestrates scope resolution and evidence planning.
 type ValidationRequest struct {
 	RunID          string                       `json:"run_id"`
+	ProjectID      string                       `json:"project_id,omitempty"`
+	SourceDigest   string                       `json:"source_digest,omitempty"`
 	ChangedFiles   []string                     `json:"changed_files,omitempty"`
 	ChangedTokens  []string                     `json:"changed_tokens,omitempty"`
 	ChangedNodes   []string                     `json:"changed_nodes,omitempty"`

@@ -33,8 +33,12 @@ func NewPipelineAdapter(pipeline *engine.Pipeline) *Adapter {
 	return &Adapter{Pipeline: pipeline, Policy: verifier.DefaultPolicy()}
 }
 
+// PlanEvidence remains part of the durable Axiom workflow contract, but for a
+// Pipeline adapter it is only a compact planning projection. The authoritative
+// scope, fidelity assessment and runtime tier are recomputed by engine.Pipeline
+// from the canonical Change payload inside CollectVerify.
 func (a *Adapter) PlanEvidence(_ context.Context, change controlplane.Change) (controlplane.EvidencePlan, error) {
-	plan := evidenceplan.Build(toSignals(change))
+	plan := evidenceplan.Build(canonicalSignals(change))
 	return fromPlan(plan), nil
 }
 
@@ -45,7 +49,11 @@ func (a *Adapter) CollectVerify(ctx context.Context, change controlplane.Change,
 	var report engine.Report
 
 	if a.Pipeline != nil {
-		req := toValidationRequest(change, requested)
+		// Do not project the Axiom-side EvidencePlan back into engine.EvidenceNeed.
+		// Doing so would make the control plane a second routing authority. The
+		// canonical pipeline receives the lossless durable change scope and owns
+		// impact resolution, invalidation, evidence synthesis and tier selection.
+		req := toValidationRequest(change)
 		res, err := a.Pipeline.Execute(ctx, req)
 		if err != nil {
 			return controlplane.ValidationResult{}, err
@@ -94,23 +102,19 @@ func (a *Adapter) Decide(_ context.Context, _ controlplane.Change, _ controlplan
 	}
 }
 
-func toSignals(change controlplane.Change) evidenceplan.Signals {
-	signals := evidenceplan.Signals{
-		Intent:             evidenceplan.Intent(change.Intent),
-		Risk:               riskLevel(change.Risk),
-		CustomFontsChanged: change.CustomFontsChanged,
-		SemanticsChanged:   change.SemanticsChanged,
-		InteractionChanged: change.InteractionChanged,
-		RuntimeChanged:     change.RuntimeChanged,
-		FinalGate:          change.FinalGate,
-	}
-	if change.Region != nil {
-		signals.Region = &evidenceplan.Region{
-			X: change.Region.X, Y: change.Region.Y,
-			Width: change.Region.Width, Height: change.Region.Height,
-			Scale: change.Region.Scale,
-		}
-	}
+func canonicalSignals(change controlplane.Change) evidenceplan.Signals {
+	req := toValidationRequest(change)
+	req.Normalize()
+	req.Need = req.DeriveNeed()
+	signals := req.Signals(riskLevel(change.Risk))
+
+	// Compatibility for older durable runs that predate canonical change sets.
+	// These flags can only widen the advisory evidence shape; they never choose
+	// the authoritative execution tier when Pipeline is configured.
+	signals.CustomFontsChanged = signals.CustomFontsChanged || change.CustomFontsChanged
+	signals.SemanticsChanged = signals.SemanticsChanged || change.SemanticsChanged
+	signals.InteractionChanged = signals.InteractionChanged || change.InteractionChanged
+	signals.RuntimeChanged = signals.RuntimeChanged || change.RuntimeChanged
 	return signals
 }
 
@@ -155,17 +159,44 @@ func missingOnlyPixels(missing []string) bool {
 	return true
 }
 
-func toValidationRequest(change controlplane.Change, requested controlplane.EvidencePlan) engine.ValidationRequest {
+// toValidationRequest is the single Axiom -> engine semantic projection.
+// It must remain lossless for all durable fields used by PlanScope and route
+// selection. requested EvidencePlan is intentionally not an argument: Axiom is
+// not allowed to narrow the canonical engine request or independently select an
+// evidence tier.
+func toValidationRequest(change controlplane.Change) engine.ValidationRequest {
+	need := engine.EvidenceNeed{
+		Geometry:     change.Need.Geometry,
+		Styles:       change.Need.Styles,
+		Pixels:       change.Need.Pixels,
+		Scenario:     change.Need.Scenario,
+		CleanState:   change.Need.CleanState,
+		CrossBrowser: change.Need.CrossBrowser,
+		Semantic:     change.Need.Semantic,
+	}
+
+	// Preserve behavior for durable runs written before ValidationNeed existed.
+	// Legacy flags can only widen evidence requirements.
+	need.Geometry = need.Geometry || change.SemanticsChanged
+	need.Styles = need.Styles || change.CustomFontsChanged
+	need.Scenario = need.Scenario || change.InteractionChanged
+	need.CleanState = need.CleanState || change.RuntimeChanged
+
 	req := engine.ValidationRequest{
-		RunID:     "axiom-pipeline-run",
-		Intent:    evidenceplan.Intent(change.Intent),
-		FinalGate: change.FinalGate,
-		Need: engine.EvidenceNeed{
-			Geometry:   requested.Structural,
-			Styles:     requested.Fonts,
-			Pixels:     requested.Pixels,
-			CleanState: requested.BrowserTruth,
-		},
+		RunID:          change.RunID,
+		ProjectID:      change.ProjectID,
+		SourceDigest:   change.SourceDigest,
+		ChangedFiles:   append([]string(nil), change.ChangedFiles...),
+		ChangedTokens:  append([]string(nil), change.ChangedTokens...),
+		ChangedNodes:   append([]string(nil), change.ChangedNodes...),
+		Intent:         evidenceplan.Intent(change.Intent),
+		FinalGate:      change.FinalGate,
+		ForceWholeSite: change.ForceWholeSite,
+		TargetRoutes:   append([]string(nil), change.TargetRoutes...),
+		Viewports:      append([]string(nil), change.Viewports...),
+		Themes:         append([]string(nil), change.Themes...),
+		Need:           need,
+		BaseURL:        change.BaseURL,
 	}
 	if change.Region != nil {
 		req.Region = &evidenceplan.Region{
@@ -178,4 +209,3 @@ func toValidationRequest(change controlplane.Change, requested controlplane.Evid
 	}
 	return req
 }
-

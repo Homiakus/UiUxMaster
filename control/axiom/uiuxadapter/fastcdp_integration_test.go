@@ -16,10 +16,20 @@ func TestAxiomFastCDPEndToEndIntegration(t *testing.T) {
 		t.Skip("set UIUX_AXIOM_FASTCDP_INTEGRATION=1 to run against a real Chromium binary")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	// Hosted CI runners can take materially longer than a warm developer machine
+	// to initialize a fresh Chrome profile. Keep the test strict (a real CDP
+	// endpoint must appear), but give process startup its own bounded budget and
+	// use the standard container-safe Chromium flags instead of treating runner
+	// startup variance as product evidence failure.
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 	runtime, err := fastcdp.StartResidentRuntime(ctx, fastcdp.RuntimeConfig{
-		Browser: fastcdp.BrowserConfig{Executable: os.Getenv("UIUX_CHROME_BIN")},
+		Browser: fastcdp.BrowserConfig{
+			Executable:     os.Getenv("UIUX_CHROME_BIN"),
+			StartupTimeout: 30 * time.Second,
+			NoSandbox:      true,
+			ExtraArgs:      []string{"--disable-dev-shm-usage"},
+		},
 		Pages: fastcdp.PagePoolConfig{
 			MaxPages: 1,
 			DiagnosticsCapacity: 64,

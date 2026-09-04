@@ -5,9 +5,39 @@ import (
 	"time"
 )
 
-// Change is the compact run-level intent handed to the durable control plane.
-// It deliberately avoids CDP/renderer implementation types.
+// ValidationNeed is the durable, protocol-neutral projection of engine.EvidenceNeed.
+// It exists in the control plane so Axiom can persist semantic validation intent
+// without depending on renderer/runtime implementation details.
+type ValidationNeed struct {
+	Geometry     bool `json:"geometry,omitempty"`
+	Styles       bool `json:"styles,omitempty"`
+	Pixels       bool `json:"pixels,omitempty"`
+	Scenario     bool `json:"scenario,omitempty"`
+	CleanState   bool `json:"clean_state,omitempty"`
+	CrossBrowser bool `json:"cross_browser,omitempty"`
+	Semantic     bool `json:"semantic,omitempty"`
+}
+
+// Change is the durable run-level input handed to the control plane.
+// Canonical scope inputs are carried losslessly so the execution adapter can
+// reconstruct the same supported engine.ValidationRequest semantics that a
+// direct caller would use. Large source bodies/artifacts are intentionally
+// excluded; persist them by digest/reference and resolve them in the execution
+// plane when needed.
 type Change struct {
+	RunID          string         `json:"run_id,omitempty"`
+	ProjectID      string         `json:"project_id,omitempty"`
+	SourceDigest   string         `json:"source_digest,omitempty"`
+	ChangedFiles   []string       `json:"changed_files,omitempty"`
+	ChangedTokens  []string       `json:"changed_tokens,omitempty"`
+	ChangedNodes   []string       `json:"changed_nodes,omitempty"`
+	TargetRoutes   []string       `json:"target_routes,omitempty"`
+	Viewports      []string       `json:"viewports,omitempty"`
+	Themes         []string       `json:"themes,omitempty"`
+	ForceWholeSite bool           `json:"force_whole_site,omitempty"`
+	BaseURL        string         `json:"base_url,omitempty"`
+	Need           ValidationNeed `json:"need,omitempty"`
+
 	Intent             string  `json:"intent,omitempty"`
 	Risk               string  `json:"risk,omitempty"`
 	CustomFontsChanged bool    `json:"custom_fonts_changed,omitempty"`
@@ -81,13 +111,13 @@ type DesignPolishRequest struct {
 
 // PolishIteration records the outcome of one repair and re-verification cycle.
 type PolishIteration struct {
-	Iteration      int      `json:"iteration"`
-	HypothesisID   string   `json:"hypothesis_id,omitempty"`
-	FindingsCount  int      `json:"findings_count"`
-	HardViolations int      `json:"hard_violations"`
-	Score          float64  `json:"score"`
-	Accepted       bool     `json:"accepted"`
-	Rationale      string   `json:"rationale"`
+	Iteration      int     `json:"iteration"`
+	HypothesisID   string  `json:"hypothesis_id,omitempty"`
+	FindingsCount  int     `json:"findings_count"`
+	HardViolations int     `json:"hard_violations"`
+	Score          float64 `json:"score"`
+	Accepted       bool    `json:"accepted"`
+	Rationale      string  `json:"rationale"`
 }
 
 // DesignPolishResult records final quality, iteration history and convergence status.
@@ -128,9 +158,9 @@ type CandidateRank struct {
 
 // ComparisonRunResult records the winner and ranked variants.
 type ComparisonRunResult struct {
-	WinnerID  string          `json:"winner_id"`
-	Rankings  []CandidateRank `json:"rankings"`
-	Summary   string          `json:"summary"`
+	WinnerID string          `json:"winner_id"`
+	Rankings []CandidateRank `json:"rankings"`
+	Summary  string          `json:"summary"`
 }
 
 // CandidateComparisonExecutor drives the execution steps of a CandidateComparisonRun.
@@ -182,23 +212,23 @@ type Run struct {
 }
 
 type DesignPolishRun struct {
-	ID          string              `json:"id"`
-	Status      string              `json:"status"`
-	PlanID      string              `json:"plan_id"`
-	Request     DesignPolishRequest `json:"request"`
-	Result      DesignPolishResult  `json:"result"`
-	Usage       Usage               `json:"usage"`
-	Failure     string              `json:"failure,omitempty"`
-	History     []HistoryEntry      `json:"history,omitempty"`
+	ID      string              `json:"id"`
+	Status  string              `json:"status"`
+	PlanID  string              `json:"plan_id"`
+	Request DesignPolishRequest `json:"request"`
+	Result  DesignPolishResult  `json:"result"`
+	Usage   Usage               `json:"usage"`
+	Failure string              `json:"failure,omitempty"`
+	History []HistoryEntry      `json:"history,omitempty"`
 }
 
 type CandidateComparisonRun struct {
-	ID          string                     `json:"id"`
-	Status      string                     `json:"status"`
-	PlanID      string                     `json:"plan_id"`
-	Request     CandidateComparisonRequest `json:"request"`
-	Result      ComparisonRunResult        `json:"result"`
-	Usage       Usage                      `json:"usage"`
-	Failure     string                     `json:"failure,omitempty"`
-	History     []HistoryEntry             `json:"history,omitempty"`
+	ID      string                     `json:"id"`
+	Status  string                     `json:"status"`
+	PlanID  string                     `json:"plan_id"`
+	Request CandidateComparisonRequest `json:"request"`
+	Result  ComparisonRunResult        `json:"result"`
+	Usage   Usage                      `json:"usage"`
+	Failure string                     `json:"failure,omitempty"`
+	History []HistoryEntry             `json:"history,omitempty"`
 }
