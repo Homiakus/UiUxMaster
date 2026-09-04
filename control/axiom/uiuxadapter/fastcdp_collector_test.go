@@ -2,10 +2,12 @@ package uiuxadapter
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/Homiakus/UiUxMaster/control/axiom/controlplane"
 	"github.com/Homiakus/UiUxMaster/internal/evidence"
+	"github.com/Homiakus/UiUxMaster/internal/runtime/fastcdp"
 )
 
 func TestNewFastCDPCollectorRejectsMissingRuntime(t *testing.T) {
@@ -34,5 +36,25 @@ func TestCaptureRegionRequiresExplicitPositiveROI(t *testing.T) {
 	}
 	if region.X != 3 || region.Y != 4 || region.Width != 100 || region.Height != 50 || region.Scale != 1 || !region.OptimizeForSpeed {
 		t.Fatalf("region = %#v", region)
+	}
+}
+
+func TestShouldDiscardCollectorPage(t *testing.T) {
+	for name, test := range map[string]struct {
+		err  error
+		want bool
+	}{
+		"nil":       {nil, false},
+		"canceled":  {context.Canceled, false},
+		"deadline":  {context.DeadlineExceeded, false},
+		"epoch":     {fastcdp.ErrEpochChanged, false},
+		"closed":    {fastcdp.ErrClosed, false},
+		"protocol":  {errors.New("websocket protocol failure"), true},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if got := shouldDiscardCollectorPage(test.err); got != test.want {
+				t.Fatalf("shouldDiscardCollectorPage(%v) = %v, want %v", test.err, got, test.want)
+			}
+		})
 	}
 }
