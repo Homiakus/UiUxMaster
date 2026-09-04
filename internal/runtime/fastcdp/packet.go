@@ -64,11 +64,14 @@ func ToPacket(collected CollectedEvidence, options PacketOptions) evidence.Packe
 			FidelityID: options.FidelityID,
 		},
 		Latency: evidence.RuntimeLatency{
-			WaitEpochMS: durationMS(collected.Timing.WaitEpoch),
-			SnapshotMS:  durationMS(collected.Timing.Snapshot),
-			PixelsMS:    durationMS(collected.Timing.Pixels),
-			TotalMS:     durationMS(collected.Timing.Total),
-			Retries:     collected.Timing.Retries,
+			WaitEpochMS:     durationMS(collected.Timing.WaitEpoch),
+			SnapshotMS:      durationMS(collected.Timing.Snapshot),
+			PixelsMS:        durationMS(collected.Timing.Pixels),
+			AccessibilityMS: durationMS(collected.Timing.Accessibility),
+			FontsMS:         durationMS(collected.Timing.Fonts),
+			DiagnosticsMS:   durationMS(collected.Timing.Diagnostics),
+			TotalMS:         durationMS(collected.Timing.Total),
+			Retries:         collected.Timing.Retries,
 		},
 	}
 	if packet.Viewport.Browser == "" {
@@ -80,6 +83,15 @@ func ToPacket(collected CollectedEvidence, options PacketOptions) evidence.Packe
 	}
 	if packet.URL == "" && len(packet.Documents) > 0 {
 		packet.URL = packet.Documents[0].URL
+	}
+	if collected.Accessibility != nil {
+		projectAccessibilityIntoPacket(&packet, *collected.Accessibility)
+	}
+	if collected.Fonts != nil {
+		projectFontsIntoPacket(&packet, *collected.Fonts)
+	}
+	if collected.Diagnostics != nil {
+		projectDiagnosticsIntoPacket(&packet, *collected.Diagnostics)
 	}
 	if collected.RGBA != nil {
 		bounds := evidence.Rect{}
@@ -115,7 +127,9 @@ func projectSnapshotIntoPacket(packet *evidence.Packet, snapshot Snapshot) {
 		})
 
 		idByNodeIndex := make(map[int]string, len(doc.Nodes))
+		parentByNodeIndex := make(map[int]int, len(doc.Nodes))
 		for _, node := range doc.Nodes {
+			parentByNodeIndex[node.NodeIndex] = node.ParentIndex
 			if node.NodeType != 1 {
 				continue
 			}
@@ -143,11 +157,108 @@ func projectSnapshotIntoPacket(packet *evidence.Packet, snapshot Snapshot) {
 				Clickable:  node.Clickable,
 				Styles:     styles,
 				Attributes: attrs,
-				ParentID:   idByNodeIndex[node.ParentIndex],
+				ParentID:   nearestProjectedParent(node.ParentIndex, parentByNodeIndex, idByNodeIndex),
 			}
 			packet.Elements = append(packet.Elements, ref)
 		}
 	}
+}
+
+func projectAccessibilityIntoPacket(packet *evidence.Packet, tree AXTree) {
+	packet.Accessibility = make([]evidence.AccessibilityNode, 0, len(tree.Nodes))
+	for _, node := range tree.Nodes {
+		packet.Accessibility = append(packet.Accessibility, evidence.AccessibilityNode{
+			ID:            node.ID,
+			ParentID:      node.ParentID,
+			ChildIDs:      append([]string(nil), node.ChildIDs...),
+			BackendNodeID: node.BackendDOMNodeID,
+			FrameID:       node.FrameID,
+			Ignored:       node.Ignored,
+			IgnoredReasons: append([]string(nil), node.IgnoredReasons...),
+			Role:          node.Role,
+			Name:          node.Name,
+			Description:   node.Description,
+			Value:         node.Value,
+			Properties:    cloneStrings(node.Properties),
+		})
+	}
+	packet.AriaSnapshot = tree.TextSnapshot()
+}
+
+func projectFontsIntoPacket(packet *evidence.Packet, fonts FontState) {
+	projected := &evidence.FontEvidence{Status: fonts.Status, Total: fonts.Total, Truncated: fonts.Truncated}
+	projected.Faces = make([]evidence.FontFaceEvidence, 0, len(fonts.Faces))
+	for _, face := range fonts.Faces {
+		projected.Faces = append(projected.Faces, evidence.FontFaceEvidence{
+			Family: face.Family, Style: face.Style, Weight: face.Weight,
+			Stretch: face.Stretch, Status: face.Status,
+		})
+	}
+	packet.Fonts = projected
+}
+
+func projectDiagnosticsIntoPacket(packet *evidence.Packet, diagnostics DiagnosticSnapshot) {
+	packet.Diagnostics = &evidence.DiagnosticsEvidence{
+		Complete: diagnostics.Complete,
+		DroppedMethods: append([]string(nil), diagnostics.DroppedMethods...),
+	}
+	for _, event := range diagnostics.Events {
+		packet.RuntimeIssues = append(packet.RuntimeIssues, diagnosticRuntimeIssue(event))
+	}
+}
+
+func diagnosticRuntimeIssue(event DiagnosticEvent) evidence.RuntimeIssue {
+	issue := evidence.RuntimeIssue{
+		Code:     string(event.Kind),
+		Message:  event.Message,
+		Severity: evidence.SeverityMedium,
+		Details:  map[string]string{},
+	}
+	switch event.Kind {
+	case DiagnosticRuntimeException:
+		issue.Severity = evidence.SeverityCritical
+	case DiagnosticConsole, DiagnosticLog:
+		if event.Level == "error" || event.Level == "assert" {
+			issue.Severity = evidence.SeverityHigh
+		}
+	case DiagnosticNetworkFailed:
+		if event.Canceled {
+			issue.Severity = evidence.SeverityLow
+		} else if criticalResource(event.Resource) {
+			issue.Severity = evidence.SeverityHigh
+		}
+	case DiagnosticHTTPError:
+		if event.StatusCode >= 500 || criticalResource(event.Resource) {
+			issue.Severity = evidence.SeverityHigh
+		}
+	}
+	if event.URL != "" {
+		issue.Details["url"] = event.URL
+	}
+	if event.RequestID != "" {
+		issue.Details["request_id"] = event.RequestID
+	}
+	if event.Resource != "" {
+		issue.Details["resource"] = event.Resource
+	}
+	if event.StatusCode != 0 {
+		issue.Details["status"] = strconv.Itoa(event.StatusCode)
+	}
+	if event.Canceled {
+		issue.Details["canceled"] = "true"
+	}
+	if len(issue.Details) == 0 {
+		issue.Details = nil
+	}
+	return issue
+}
+
+func criticalResource(resource string) bool {
+	switch strings.ToLower(strings.TrimSpace(resource)) {
+	case "document", "script", "stylesheet", "font", "xhr", "fetch":
+		return true
+	}
+	return false
 }
 
 func elementID(frameID string, node SnapshotNode) string {
@@ -155,6 +266,25 @@ func elementID(frameID string, node SnapshotNode) string {
 		return fmt.Sprintf("dom:%s:%d", frameID, node.BackendNodeID)
 	}
 	return fmt.Sprintf("dom:%s:node-%d", frameID, node.NodeIndex)
+}
+
+func nearestProjectedParent(parentIndex int, parentByNodeIndex map[int]int, idByNodeIndex map[int]string) string {
+	seen := make(map[int]struct{})
+	for parentIndex >= 0 {
+		if id := idByNodeIndex[parentIndex]; id != "" {
+			return id
+		}
+		if _, cycle := seen[parentIndex]; cycle {
+			return ""
+		}
+		seen[parentIndex] = struct{}{}
+		next, ok := parentByNodeIndex[parentIndex]
+		if !ok {
+			return ""
+		}
+		parentIndex = next
+	}
+	return ""
 }
 
 func semanticRole(tag string, attrs map[string]string) string {
