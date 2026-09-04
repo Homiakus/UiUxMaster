@@ -83,6 +83,66 @@ func TestApplyPreservesExistingRuntimeIssuesSortsAndIsIdempotent(t *testing.T) {
 	}
 }
 
+func TestVerifyFixedStickyObstruction(t *testing.T) {
+	packet := evidence.Packet{
+		Elements: []evidence.ElementRef{
+			{ID: "nav", Tag: "nav", Visible: true, Bounds: evidence.Rect{X: 0, Y: 0, Width: 320, Height: 60}, Styles: map[string]string{"position": "fixed"}},
+			{ID: "btn", Tag: "button", Role: "button", Visible: true, Bounds: evidence.Rect{X: 20, Y: 10, Width: 100, Height: 40}, Styles: map[string]string{"position": "static"}},
+		},
+	}
+	res := Verify(packet, DefaultPolicy())
+	if !hasIssue(res.Issues, CodeFixedStickyObstruction) {
+		t.Fatalf("expected fixed/sticky obstruction issue, got %#v", res.Issues)
+	}
+}
+
+func TestVerifyFocusSequencePositiveTabindex(t *testing.T) {
+	packet := evidence.Packet{
+		Elements: []evidence.ElementRef{
+			{ID: "btn1", Tag: "button", Role: "button", Visible: true, Attributes: map[string]string{"tabindex": "5"}, Bounds: evidence.Rect{Width: 50, Height: 50}},
+			{ID: "btn2", Tag: "button", Role: "button", Visible: true, Attributes: map[string]string{"tabindex": "0"}, Bounds: evidence.Rect{Width: 50, Height: 50}},
+		},
+	}
+	res := Verify(packet, DefaultPolicy())
+	if !hasIssue(res.Issues, CodeFocusSequenceAnomaly) {
+		t.Fatalf("expected focus sequence anomaly for positive tabindex, got %#v", res.Issues)
+	}
+}
+
+func TestVerifyDuplicateDOMIDs(t *testing.T) {
+	packet := evidence.Packet{
+		Elements: []evidence.ElementRef{
+			{ID: "el-1", Tag: "div", Attributes: map[string]string{"id": "main-content"}},
+			{ID: "el-2", Tag: "section", Attributes: map[string]string{"id": "main-content"}},
+			{ID: "el-3", Tag: "p", Attributes: map[string]string{"id": "unique-p"}},
+		},
+	}
+	res := Verify(packet, DefaultPolicy())
+	if !hasIssue(res.Issues, CodeDuplicateDOMID) {
+		t.Fatalf("expected duplicate DOM ID issue, got %#v", res.Issues)
+	}
+}
+
+func TestVerifyTextTruncationAnomaly(t *testing.T) {
+	packet := evidence.Packet{
+		Elements: []evidence.ElementRef{
+			{
+				ID:      "hero-title",
+				Tag:     "h1",
+				Role:    "heading",
+				Name:    "Welcome to UiUxMaster Design Platform",
+				Visible: true,
+				Bounds:  evidence.Rect{Width: 15, Height: 24},
+				Styles:  map[string]string{"text-overflow": "ellipsis", "overflow": "hidden", "white-space": "nowrap"},
+			},
+		},
+	}
+	res := Verify(packet, DefaultPolicy())
+	if !hasIssue(res.Issues, CodeTextTruncationAnomaly) {
+		t.Fatalf("expected text truncation anomaly for severely clipped heading, got %#v", res.Issues)
+	}
+}
+
 func hasIssue(issues []evidence.RuntimeIssue, code string) bool {
 	for _, issue := range issues {
 		if issue.Code == code { return true }

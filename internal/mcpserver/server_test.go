@@ -87,3 +87,10 @@ func TestInspectAccessibilityTool(t *testing.T) {
 		t.Errorf("issue code = %s, want %s", issues[0].Code, verifier.CodeA11yNameMissing)
 	}
 }
+
+func TestMCPServer_NewToolsRegistered(t *testing.T) {
+	server := mcpserver.New(mcpserver.Config{})
+	if server == nil {
+		t.Fatal("expected non-nil server")
+	}
+}

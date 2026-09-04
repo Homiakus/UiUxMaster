@@ -1,3 +1,7 @@
+# ==============================================================================
+# UiUxMaster — Git Ignore Configuration
+# ==============================================================================
+
 # Binaries and executables
 *.exe
 *.exe~
@@ -6,8 +10,9 @@
 *.dylib
 bin/
 dist/
+build/
 
-# Test artifacts
+# Go test and profiling artifacts
 *.test
 *.out
 profile.out
@@ -17,25 +22,61 @@ pprof/
 
 # Go workspace and caches
 .cache/
+vendor/
 
-# Node / Web / Playwright artifacts
+# Node / Web / Package managers
 node_modules/
+package-lock.json.bak
+yarn-error.log*
+yarn-debug.log*
+npm-debug.log*
+pnpm-debug.log*
+.pnpm-store/
+.yarn/cache/
+.yarn/unplugged/
+
+# Playwright and browser test artifacts
 test-results/
 playwright-report/
+playwright/.cache/
 .playwright/
+blob-report/
 
-# Browser temporary and scratch profiles
+# Browser profiles, temporary caches, and captures
 temp/
 tmp/
 scratch/
 screenshots/
+recordings/
+traces/
+chrome-profile*/
+userDataDir*/
 *.log
+*.crdownload
+*.webloc
 
-# Epistemic / Axiom state stores
+# Benchmark and runtime metrics
+build/benchmarks/*.raw
+benchmarks/local/
+
+# Epistemic Memory, Axiom & SkillState stores
 .axiom_store/
 .ep_memory_store/
+.skillstate/
+.agctl/
+.autoloop/
+.sncsincore/
 
-# OS generated files
+# Environment variables and sensitive secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.pfx
+*.cert
+
+# Operating System generated files
 .DS_Store
 .DS_Store?
 ._*
@@ -45,7 +86,7 @@ ehthumbs.db
 Thumbs.db
 desktop.ini
 
-# IDE and Editor files
+# IDEs, Editors & AI Agent configurations
 .idea/
 .vscode/
 *.sublime-project
@@ -53,3 +94,5 @@ desktop.ini
 *.swp
 *.swo
 *~
+.zed/
+.cursor/

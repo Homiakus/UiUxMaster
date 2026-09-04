@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -19,6 +20,10 @@ const (
 	CodeInteractiveHidden          = "interaction.target_hidden"
 	CodePointerEventsDisabled      = "interaction.pointer_events_disabled"
 	CodeStyleInvariant             = "style.invariant_violation"
+	CodeFixedStickyObstruction     = "layout.fixed_sticky_obstruction"
+	CodeFocusSequenceAnomaly       = "accessibility.focus_sequence_anomaly"
+	CodeDuplicateDOMID             = "dom.duplicate_id"
+	CodeTextTruncationAnomaly      = "typography.text_truncation_anomaly"
 )
 
 type StyleInvariant struct {
@@ -68,12 +73,16 @@ func Verify(packet evidence.Packet, policy Policy) Result {
 		byID[element.ID] = element
 	}
 
-	issues := make([]evidence.RuntimeIssue, 0, 8)
+	issues := make([]evidence.RuntimeIssue, 0, 16)
 	issues = append(issues, verifyViewportOverflow(packet, policy)...)
 	issues = append(issues, verifyClipping(packet.Elements, byID, policy)...)
 	issues = append(issues, verifyInteractiveState(packet.Elements, policy)...)
 	issues = append(issues, verifyInteractiveOverlap(packet.Elements, byID, policy)...)
 	issues = append(issues, verifyStyleInvariants(packet.Elements, policy.StyleInvariants)...)
+	issues = append(issues, verifyFixedStickyObstruction(packet.Elements, byID, policy)...)
+	issues = append(issues, verifyFocusSequence(packet.Elements)...)
+	issues = append(issues, verifyDuplicateIDs(packet.Elements)...)
+	issues = append(issues, verifyTextTruncation(packet.Elements)...)
 
 	sortIssues(issues)
 	return Result{Issues: issues, Duration: time.Since(started)}
@@ -475,3 +484,132 @@ func sortIssues(issues []evidence.RuntimeIssue) {
 		return issues[i].Message < issues[j].Message
 	})
 }
+
+func verifyFixedStickyObstruction(elements []evidence.ElementRef, byID map[string]evidence.ElementRef, policy Policy) []evidence.RuntimeIssue {
+	fixedSticky := make([]evidence.ElementRef, 0)
+	interactive := make([]evidence.ElementRef, 0)
+
+	for _, element := range elements {
+		if !element.Visible || element.Bounds.Width <= 0 || element.Bounds.Height <= 0 {
+			continue
+		}
+		pos := strings.ToLower(strings.TrimSpace(element.Styles["position"]))
+		if pos == "fixed" || pos == "sticky" {
+			fixedSticky = append(fixedSticky, element)
+		}
+		if isInteractive(element) && !isDisabled(element) && !ariaHidden(element) {
+			interactive = append(interactive, element)
+		}
+	}
+
+	if len(fixedSticky) == 0 || len(interactive) == 0 {
+		return nil
+	}
+
+	issues := make([]evidence.RuntimeIssue, 0)
+	for _, fs := range fixedSticky {
+		fsRight := fs.Bounds.X + fs.Bounds.Width
+		fsBottom := fs.Bounds.Y + fs.Bounds.Height
+
+		for _, it := range interactive {
+			if fs.ID == it.ID || relatedByAncestry(fs.ID, it.ID, byID) {
+				continue
+			}
+			overlapW := overlap1D(fs.Bounds.X, fsRight, it.Bounds.X, it.Bounds.X+it.Bounds.Width)
+			overlapH := overlap1D(fs.Bounds.Y, fsBottom, it.Bounds.Y, it.Bounds.Y+it.Bounds.Height)
+			if overlapW >= policy.OverlapMinPixels && overlapH >= policy.OverlapMinPixels {
+				overlapArea := overlapW * overlapH
+				itArea := rectArea(it.Bounds)
+				if itArea > 0 && (overlapArea/itArea) >= policy.OverlapRatio {
+					ids := []string{fs.ID, it.ID}
+					sort.Strings(ids)
+					issues = append(issues, evidence.RuntimeIssue{
+						Code:       CodeFixedStickyObstruction,
+						Severity:   evidence.SeverityHigh,
+						ElementIDs: ids,
+						Message: fmt.Sprintf("%s element %q obstructs interactive target %q by %.0f%%",
+							fs.Styles["position"], fs.ID, it.ID, 100*overlapArea/itArea),
+					})
+				}
+			}
+		}
+	}
+	return issues
+}
+
+func verifyFocusSequence(elements []evidence.ElementRef) []evidence.RuntimeIssue {
+	issues := make([]evidence.RuntimeIssue, 0)
+	for _, element := range elements {
+		tabindexStr, ok := element.Attributes["tabindex"]
+		if !ok {
+			continue
+		}
+		tabindexStr = strings.TrimSpace(tabindexStr)
+		val, err := strconv.Atoi(tabindexStr)
+		if err == nil && val > 0 {
+			issues = append(issues, evidence.RuntimeIssue{
+				Code:       CodeFocusSequenceAnomaly,
+				Severity:   evidence.SeverityMedium,
+				ElementIDs: []string{element.ID},
+				Message: fmt.Sprintf("%s %q has positive tabindex=%d, disrupting natural sequential focus navigation order (WCAG 2.4.3)",
+					elementLabel(element), element.ID, val),
+			})
+		}
+	}
+	return issues
+}
+
+func verifyDuplicateIDs(elements []evidence.ElementRef) []evidence.RuntimeIssue {
+	seen := make(map[string][]string)
+	for _, element := range elements {
+		domID := strings.TrimSpace(element.Attributes["id"])
+		if domID == "" {
+			continue
+		}
+		seen[domID] = append(seen[domID], element.ID)
+	}
+
+	issues := make([]evidence.RuntimeIssue, 0)
+	for domID, refs := range seen {
+		if len(refs) > 1 {
+			sort.Strings(refs)
+			issues = append(issues, evidence.RuntimeIssue{
+				Code:       CodeDuplicateDOMID,
+				Severity:   evidence.SeverityMedium,
+				ElementIDs: refs,
+				Message:    fmt.Sprintf("duplicate DOM id %q shared by multiple elements: %s", domID, strings.Join(refs, ", ")),
+			})
+		}
+	}
+	return issues
+}
+
+func verifyTextTruncation(elements []evidence.ElementRef) []evidence.RuntimeIssue {
+	issues := make([]evidence.RuntimeIssue, 0)
+	for _, element := range elements {
+		if !element.Visible || isIgnoredForGeometry(element) {
+			continue
+		}
+		textOverflow := strings.ToLower(strings.TrimSpace(element.Styles["text-overflow"]))
+		overflow := strings.ToLower(strings.TrimSpace(element.Styles["overflow"]))
+		whiteSpace := strings.ToLower(strings.TrimSpace(element.Styles["white-space"]))
+
+		isEllipsis := textOverflow == "ellipsis"
+		isClippedText := (overflow == "hidden" || textOverflow == "clip") && whiteSpace == "nowrap"
+
+		if isEllipsis || isClippedText {
+			isHeaderOrAction := strings.HasPrefix(element.Tag, "h") || element.Role == "button" || element.Role == "link" || element.Role == "heading"
+			if isHeaderOrAction && element.Bounds.Width > 0 && element.Bounds.Width < 20 {
+				issues = append(issues, evidence.RuntimeIssue{
+					Code:       CodeTextTruncationAnomaly,
+					Severity:   evidence.SeverityMedium,
+					ElementIDs: []string{element.ID},
+					Message: fmt.Sprintf("%s %q text is severely truncated (width=%.1fpx) with %s, rendering content illegible",
+						elementLabel(element), element.ID, element.Bounds.Width, textOverflow),
+				})
+			}
+		}
+	}
+	return issues
+}
+

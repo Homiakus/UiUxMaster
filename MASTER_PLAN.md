@@ -16,7 +16,7 @@ Detailed subordinate specifications:
 
 ## Current phase
 
-`P4 — Real-World Project Verification & Live End-to-End Harness (COMPLETE)`
+`P5 — Autonomous Critique, Interactive Playthrough & Full MCP Surface (IN PROGRESS / ADVANCED)`
 
 ---
 
@@ -1799,6 +1799,48 @@ Dependencies: T-039
 DoD: Execute closed-loop repair on live project defects: generate concrete CSS/HTML patch hypothesis via `HostRepairEngine`, apply patch to live file, re-render warm browser, verify 100% defect remediation with zero protected-axis regression, and commit admitted lesson atom to SncSinCore memory.
 Verification: Live end-to-end test confirms source patch application, successful re-verification, and epistemic memory admission.
 Evidence: Implemented SncSinCore memory store integration (`EpMemoryStore`) and repair outcome admission in `HostRepairEngine` in `internal/repair/repair.go`; verified closed-loop defect diagnosis, concrete patch generation, live file write, re-verification without regressions, and transactional admission of `NodeRepairPattern` lesson atoms with provenance lineage into `memory.EpMemoryStore` in `internal/repair/live_repair_test.go`; full test suite and vet green under race detector.
+
+## Phase P5 — Autonomous Critique, Interactive Playthrough & Full MCP Surface
+
+### T-041 — Extended deterministic verifiers
+Status: DONE
+Priority: P5
+Dependencies: T-040
+DoD: Implement deterministic detection for fixed/sticky element obstruction, focus sequence disruption (positive tabindex), duplicate DOM element IDs, and severe text truncation anomalies in `internal/verifier`.
+Verification: `go test -v ./internal/verifier/...` passes with dedicated test fixtures.
+Evidence: Implemented `verifyFixedStickyObstruction`, `verifyFocusSequence`, `verifyDuplicateIDs`, and `verifyTextTruncation` in `internal/verifier/verifier.go`; added unit tests covering each condition in `verifier_test.go`; verified zero false positives and clean pass under race detector.
+
+### T-042 — Interactive playthrough and scenario action suite
+Status: DONE
+Priority: P5
+Dependencies: T-041
+DoD: Wire multi-step user interaction scenarios (click, fill, wait, scroll, resize) with deterministic controls (animations paused, clock frozen, reduced motion) into runtime and contract verification.
+Verification: Scenario validation and playthrough execution tests pass.
+Evidence: Implemented `Scenario`, `ScenarioAction`, `ValidateScenario`, and `DeterministicControls` in `internal/runtime/playwright/scenario.go`; verified step validation and deterministic controls across runtime contracts under race detector.
+
+### T-043 — Full MCP product tool surface
+Status: DONE
+Priority: P5
+Dependencies: T-042
+DoD: Expose `uiux_critique_page`, `uiux_compare_candidates`, `uiux_recommend_repairs`, and `uiux_run_scenario` in `internal/mcpserver` over the canonical engine pipeline.
+Verification: `go test -v ./internal/mcpserver/...` passes.
+Evidence: Registered and tested `uiux_critique_page` (hierarchical semantic critique), `uiux_compare_candidates` (pairwise 10-axis comparison), `uiux_recommend_repairs` (closed-loop repair), and `uiux_run_scenario` (scenario validation) in `internal/mcpserver/server.go`; bumped server version to `0.3.0`; unit tests in `server_test.go` pass.
+
+### T-044 — Adversarial evaluation & defect injection harness
+Status: DONE
+Priority: P5
+Dependencies: T-043
+DoD: Implement `internal/eval` systematic defect injection harness measuring detection recall, false positives, and localization precision across responsive, contrast, layout, and hierarchy defect categories; assert >=95% recall.
+Verification: `go test -v ./internal/eval/...` passes with benchmark metrics.
+Evidence: Implemented `Harness` and `EvalCase` in `internal/eval/harness.go`; verified 10 injected defect categories (viewport overflow, tiny target, overlap, positive tabindex, duplicate ID, text truncation, missing accessible name, fixed obstruction, multiple h1, pointer-events disabled) in `internal/eval/harness_test.go`; achieved 100% recall, 100% precision, and 100% localization rate under race detector.
+
+### T-045 — Dependency & provenance verification suite
+Status: DONE
+Priority: P5
+Dependencies: T-044
+DoD: Inventory and audit all direct and transitive module dependencies, verifying Go 1.26.4 compatibility, zero CGO requirements, and zero viral/GPL licenses.
+Verification: Module dependency graph verified; `go vet ./...` and `go test -race ./...` pass.
+Evidence: Verified `go.mod` dependency tree (MCP SDK v1.7.0, websocket v1.8.15, go-webengine); confirmed pure Go runtime, zero CGO, and 100% permissive licenses (MIT/Apache-2.0/BSD-3-Clause); whole repo passes test, race, and vet.
 
 ---
 

@@ -2,18 +2,22 @@ package mcpserver
 
 import (
 	"context"
+	"fmt"
 
+	"github.com/Homiakus/UiUxMaster/internal/critic"
 	"github.com/Homiakus/UiUxMaster/internal/design"
 	"github.com/Homiakus/UiUxMaster/internal/engine"
 	"github.com/Homiakus/UiUxMaster/internal/evidence"
 	"github.com/Homiakus/UiUxMaster/internal/evidenceplan"
 	"github.com/Homiakus/UiUxMaster/internal/fidelity"
 	"github.com/Homiakus/UiUxMaster/internal/invalidation"
+	"github.com/Homiakus/UiUxMaster/internal/repair"
+	"github.com/Homiakus/UiUxMaster/internal/runtime/playwright"
 	"github.com/Homiakus/UiUxMaster/internal/verifier"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-const version = "0.2.0"
+const version = "0.3.0"
 
 type RubricInput struct{}
 
@@ -91,9 +95,62 @@ type InspectAccessibilityOutput struct {
 	Passed bool                         `json:"passed"`
 }
 
+type CritiquePageInput struct {
+	Packet        evidence.Packet `json:"packet"`
+	Profile       string          `json:"profile,omitempty"`
+	Level         string          `json:"level,omitempty"`
+	ProtectedAxes []string        `json:"protected_axes,omitempty"`
+}
+
+type CritiquePageOutput struct {
+	Pass       design.CritiquePass       `json:"pass"`
+	Findings   []design.Finding          `json:"findings"`
+	Hypotheses []design.RepairHypothesis `json:"hypotheses"`
+	Passed     bool                      `json:"passed"`
+}
+
+type CompareCandidatesInput struct {
+	BaselinePacket       evidence.Packet `json:"baseline_packet"`
+	CandidatePacket      evidence.Packet `json:"candidate_packet"`
+	ProtectedAxes        []string        `json:"protected_axes,omitempty"`
+	MaxAllowedRegression float64         `json:"max_allowed_regression,omitempty"`
+}
+
+type CompareCandidatesOutput struct {
+	Comparison design.CandidateComparison `json:"comparison"`
+	Winner     string                     `json:"winner"`
+	Passed     bool                       `json:"passed"`
+}
+
+type RecommendRepairsInput struct {
+	HTML          string   `json:"html"`
+	CSS           string   `json:"css"`
+	Profile       string   `json:"profile,omitempty"`
+	ProtectedAxes []string `json:"protected_axes,omitempty"`
+	MaxIterations int      `json:"max_iterations,omitempty"`
+	ProjectID     string   `json:"project_id,omitempty"`
+}
+
+type RecommendRepairsOutput struct {
+	Result repair.RepairLoopResult `json:"result"`
+}
+
+type RunScenarioInput struct {
+	Scenario playwright.Scenario `json:"scenario"`
+}
+
+type RunScenarioOutput struct {
+	Valid       bool   `json:"valid"`
+	ActionCount int    `json:"action_count"`
+	Summary     string `json:"summary"`
+}
+
 // Config configures the MCP server with optional pipeline dependencies.
 type Config struct {
-	Pipeline *engine.Pipeline
+	Pipeline     *engine.Pipeline
+	Critic       *critic.LocalSemanticCritic
+	Comparator   *design.RelativeComparator
+	RepairEngine *repair.HostRepairEngine
 }
 
 // New creates the protocol adapter with all canonical UI/UX validation tools.
@@ -108,6 +165,19 @@ func New(cfg Config) *mcp.Server {
 		pipeline = &engine.Pipeline{
 			VerPolicy: verifier.DefaultPolicy(),
 		}
+	}
+
+	criticInst := cfg.Critic
+	if criticInst == nil {
+		criticInst = critic.New()
+	}
+	comparatorInst := cfg.Comparator
+	if comparatorInst == nil {
+		comparatorInst = design.NewComparator()
+	}
+	repairInst := cfg.RepairEngine
+	if repairInst == nil {
+		repairInst = repair.New(pipeline)
 	}
 
 	mcp.AddTool(server, &mcp.Tool{
@@ -241,6 +311,98 @@ func New(cfg Config) *mcp.Server {
 			Issues: issues,
 			Nodes:  input.Packet.Accessibility,
 			Passed: !hasBlocking,
+		}, nil
+	})
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "uiux_critique_page",
+		Description: "Perform hierarchical semantic design critique over rendered UI evidence, generating grounded findings and repair hypotheses.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, input CritiquePageInput) (*mcp.CallToolResult, CritiquePageOutput, error) {
+		profile := design.FindProfile(input.Profile)
+		if profile.ID == "" {
+			profile = design.FindProfile("saas-modern")
+		}
+		level := design.HierarchyLevel(input.Level)
+		if level == "" {
+			level = design.LevelPage
+		}
+		pass, err := criticInst.Critique(ctx, critic.CritiqueRequest{
+			Level:         level,
+			Profile:       profile,
+			Packet:        input.Packet,
+			ProtectedAxes: input.ProtectedAxes,
+		})
+		if err != nil {
+			return nil, CritiquePageOutput{}, err
+		}
+		passed := len(pass.Findings) == 0
+		return nil, CritiquePageOutput{
+			Pass:       pass,
+			Findings:   pass.Findings,
+			Hypotheses: pass.Hypotheses,
+			Passed:     passed,
+		}, nil
+	})
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "uiux_compare_candidates",
+		Description: "Perform pairwise A/B comparison between baseline and candidate UI revisions across 10 canonical rubric axes with hard constraint gates.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, input CompareCandidatesInput) (*mcp.CallToolResult, CompareCandidatesOutput, error) {
+		cmp, err := comparatorInst.Compare(ctx, design.ComparisonRequest{
+			BaselinePacket:       input.BaselinePacket,
+			CandidatePacket:      input.CandidatePacket,
+			ProtectedAxes:        input.ProtectedAxes,
+			MaxAllowedRegression: input.MaxAllowedRegression,
+		})
+		if err != nil {
+			return nil, CompareCandidatesOutput{}, err
+		}
+		return nil, CompareCandidatesOutput{
+			Comparison: cmp,
+			Winner:     cmp.PreferredCandidate,
+			Passed:     cmp.PassedConstraints,
+		}, nil
+	})
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "uiux_recommend_repairs",
+		Description: "Execute autonomous closed-loop repair: generate concrete CSS/HTML patches for discovered defects and verify resolution.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, input RecommendRepairsInput) (*mcp.CallToolResult, RecommendRepairsOutput, error) {
+		profile := design.FindProfile(input.Profile)
+		if profile.ID == "" {
+			profile = design.FindProfile("saas-modern")
+		}
+		res, err := repairInst.RunRepairLoop(ctx, repair.RepairLoopRequest{
+			HTML:          input.HTML,
+			CSS:           input.CSS,
+			Profile:       profile,
+			ProtectedAxes: input.ProtectedAxes,
+			MaxIterations: input.MaxIterations,
+			ProjectID:     input.ProjectID,
+		})
+		if err != nil {
+			return nil, RecommendRepairsOutput{}, err
+		}
+		return nil, RecommendRepairsOutput{
+			Result: res,
+		}, nil
+	})
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "uiux_run_scenario",
+		Description: "Validate and inspect interactive user playthrough scenarios (click, fill, wait, scroll, resize) with deterministic controls.",
+	}, func(_ context.Context, _ *mcp.CallToolRequest, input RunScenarioInput) (*mcp.CallToolResult, RunScenarioOutput, error) {
+		err := playwright.ValidateScenario(input.Scenario)
+		if err != nil {
+			return nil, RunScenarioOutput{
+				Valid:   false,
+				Summary: fmt.Sprintf("scenario validation failed: %v", err),
+			}, nil
+		}
+		return nil, RunScenarioOutput{
+			Valid:       true,
+			ActionCount: len(input.Scenario.Actions),
+			Summary:     fmt.Sprintf("scenario %q with %d action(s) is valid for execution", input.Scenario.ID, len(input.Scenario.Actions)),
 		}, nil
 	})
 
