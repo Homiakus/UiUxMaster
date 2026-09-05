@@ -29,7 +29,6 @@ func (m *mockRepairCollector) Collect(_ context.Context, req engine.ValidationRe
 		},
 	}
 
-	// Extract elements from HTML
 	var elements []evidence.ElementRef
 	if strings.Contains(strings.ToLower(htmlStr), "<h1") {
 		elements = append(elements, evidence.ElementRef{
@@ -57,29 +56,20 @@ func (m *mockRepairCollector) Collect(_ context.Context, req engine.ValidationRe
 	}
 	packet.Elements = elements
 
-	// Check width from CSS
 	contentWidth := 1200.0
 	if strings.Contains(cssStr, "width: 2000px") && !strings.Contains(cssStr, "max-width: 100vw") {
 		contentWidth = 2000.0
 	}
-	packet.Documents = []evidence.DocumentMetrics{
-		{
-			ContentWidth:  contentWidth,
-			ContentHeight: 800.0,
-		},
-	}
+	packet.Documents = []evidence.DocumentMetrics{{
+		ContentWidth:  contentWidth,
+		ContentHeight: 800.0,
+	}}
 
 	return packet, nil
 }
 
-func TestHostRepairEngine_EndToEndAutonomousRepair(t *testing.T) {
-	pipeline := &engine.Pipeline{
-		Collector: &mockRepairCollector{},
-		VerPolicy: verifier.DefaultPolicy(),
-	}
-	repairEngine := New(pipeline)
-
-	faultyHTML := `<!DOCTYPE html>
+func repairFixture() (string, string) {
+	return `<!DOCTYPE html>
 <html>
 <head><title>Test App</title></head>
 <body>
@@ -87,16 +77,23 @@ func TestHostRepairEngine_EndToEndAutonomousRepair(t *testing.T) {
     <button id="cta-btn"></button>
   </div>
 </body>
-</html>`
-
-	faultyCSS := `
+</html>`, `
 body {
   width: 2000px;
 }
 `
+}
+
+func TestHostRepairEngine_OptimizationCannotSelfApprove(t *testing.T) {
+	pipeline := &engine.Pipeline{
+		Collector: &mockRepairCollector{},
+		VerPolicy: verifier.DefaultPolicy(),
+	}
+	repairEngine := New(pipeline)
+	faultyHTML, faultyCSS := repairFixture()
 
 	result, err := repairEngine.RunRepairLoop(context.Background(), RepairLoopRequest{
-		RunID:         "repair-test-1",
+		RunID:         "repair-test-self-approval",
 		HTML:          faultyHTML,
 		CSS:           faultyCSS,
 		Profile:       design.FindProfile("saas-modern"),
@@ -107,18 +104,25 @@ body {
 		t.Fatalf("repair loop failed: %v", err)
 	}
 
-	t.Logf("Repair loop result: %s", result.Summary)
-
 	if result.InitialFindings == 0 {
-		t.Errorf("expected initial findings > 0")
+		t.Fatalf("expected initial findings > 0")
 	}
 	if len(result.PatchesApplied) == 0 {
-		t.Errorf("expected patches to be applied")
+		t.Fatalf("expected patches to be proposed")
 	}
 	if result.FinalFindings >= result.InitialFindings {
-		t.Errorf("expected final findings (%d) < initial findings (%d)", result.FinalFindings, result.InitialFindings)
+		t.Fatalf("expected optimization findings to improve: initial=%d final=%d", result.InitialFindings, result.FinalFindings)
 	}
-	if !result.Passed {
-		t.Errorf("expected repair loop to pass re-verification and constraints")
+	if !result.CandidateImproved {
+		t.Fatalf("expected candidate to improve under optimization-side scoring")
+	}
+	if result.Passed {
+		t.Fatalf("optimization pipeline must never grant completion without an independent FinalGate")
+	}
+	if !result.EscalationRequired {
+		t.Fatalf("missing independent FinalGate must require escalation")
+	}
+	if len(result.FinalGate.ReasonCodes) == 0 || result.FinalGate.ReasonCodes[0] != "independent_final_gate_unconfigured" {
+		t.Fatalf("unexpected final gate reasons: %#v", result.FinalGate.ReasonCodes)
 	}
 }
