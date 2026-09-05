@@ -103,26 +103,41 @@ func (d *Dispatcher) Capabilities() fastrender.Capabilities {
 }
 
 // Collect executes the requested validation plan on the appropriate runtime tier.
+// A policy-selected minimum tier is a hard lower bound. The dispatcher may
+// escalate upward (for example L1 -> L2), but it never substitutes weaker
+// evidence for a stronger route.
 func (d *Dispatcher) Collect(ctx context.Context, req engine.ValidationRequest, plan engine.ValidationPlan) (evidence.Packet, error) {
 	if err := ctx.Err(); err != nil {
 		return evidence.Packet{}, err
 	}
 
+	var (
+		packet evidence.Packet
+		err    error
+	)
+
 	switch plan.Route.Tier {
 	case engine.TierStatic:
-		return d.collectL0(ctx, req, plan)
+		packet, err = d.collectL0(ctx, req, plan)
 	case engine.TierFastRender:
-		return d.collectL1(ctx, req, plan)
+		packet, err = d.collectL1(ctx, req, plan)
 	case engine.TierFastBrowser, engine.TierSemantic:
-		return d.collectL2(ctx, req, plan)
+		packet, err = d.collectL2(ctx, req, plan)
 	case engine.TierTruthPath:
-		if d.l3 != nil {
-			return d.collectL3(ctx, req, plan)
+		if d.l3 == nil {
+			return evidence.Packet{}, unavailable(engine.TierTruthPath, "L3 truthpath")
 		}
-		return d.collectL2(ctx, req, plan)
+		packet, err = d.collectL3(ctx, req, plan)
 	default:
-		return d.collectL2(ctx, req, plan)
+		return evidence.Packet{}, fmt.Errorf("%w: tier=%q", ErrInvalidRoute, plan.Route.Tier)
 	}
+	if err != nil {
+		return evidence.Packet{}, err
+	}
+	if err := attest(plan, packet); err != nil {
+		return evidence.Packet{}, err
+	}
+	return packet, nil
 }
 
 // Execute combines route planning and collection into one unified workflow call.
@@ -134,7 +149,7 @@ func (d *Dispatcher) Execute(ctx context.Context, req engine.ValidationRequest, 
 
 func (d *Dispatcher) collectL0(ctx context.Context, req engine.ValidationRequest, plan engine.ValidationPlan) (evidence.Packet, error) {
 	if d.l0 == nil {
-		return evidence.Packet{}, fmt.Errorf("dispatcher: L0 static collector is nil")
+		return evidence.Packet{}, unavailable(engine.TierStatic, "L0 static")
 	}
 	return d.l0.CollectL0(ctx, req, plan.EvidencePlan)
 }
@@ -144,7 +159,7 @@ func (d *Dispatcher) collectL1(ctx context.Context, req engine.ValidationRequest
 		if d.escalateL1 && d.l2 != nil {
 			return d.collectL2(ctx, req, plan)
 		}
-		return evidence.Packet{}, fmt.Errorf("dispatcher: L1 fastrender renderer not configured")
+		return evidence.Packet{}, unavailable(engine.TierFastRender, "L1 fastrender")
 	}
 
 	caps := d.l1.Capabilities()
@@ -325,7 +340,7 @@ func (d *Dispatcher) collectL1(ctx context.Context, req engine.ValidationRequest
 
 func (d *Dispatcher) collectL2(ctx context.Context, req engine.ValidationRequest, plan engine.ValidationPlan) (evidence.Packet, error) {
 	if d.l2 == nil {
-		return evidence.Packet{}, fmt.Errorf("dispatcher: L2 fastbrowser collector not configured")
+		return evidence.Packet{}, unavailable(engine.TierFastBrowser, "L2 fastbrowser")
 	}
 	ep := plan.EvidencePlan
 	if ep.Region == nil {
@@ -347,7 +362,7 @@ func (d *Dispatcher) collectL2(ctx context.Context, req engine.ValidationRequest
 
 func (d *Dispatcher) collectL3(ctx context.Context, req engine.ValidationRequest, plan engine.ValidationPlan) (evidence.Packet, error) {
 	if d.l3 == nil {
-		return evidence.Packet{}, fmt.Errorf("dispatcher: L3 truthpath collector not configured")
+		return evidence.Packet{}, unavailable(engine.TierTruthPath, "L3 truthpath")
 	}
 	ep := plan.EvidencePlan
 	if ep.Region == nil {
@@ -366,4 +381,3 @@ func (d *Dispatcher) collectL3(ctx context.Context, req engine.ValidationRequest
 	}
 	return d.l3.CollectL3(ctx, req, ep)
 }
-
