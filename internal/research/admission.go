@@ -14,20 +14,26 @@ type AdmissionAdapter struct {
 	store memory.Store
 }
 
-// NewAdmissionAdapter creates an AdmissionAdapter.
 func NewAdmissionAdapter(store memory.Store) *AdmissionAdapter {
 	return &AdmissionAdapter{store: store}
 }
 
 // MapBundleToAdmission converts research sources and claims into memory atoms and relationship edges.
+// Research ingestion is ordinary admission into the same scope. Moving research
+// claims from a project/global research partition into global design knowledge is
+// a separate promotion operation owned by the memory promotion authority.
 func (a *AdmissionAdapter) MapBundleToAdmission(bundle *ResearchBundle, targetScope memory.Namespace) (*memory.AdmissionBundle, error) {
 	if bundle == nil {
 		return nil, ErrInvalidBundle
 	}
 
 	ns := targetScope
-	if ns.String() == "" {
+	if !ns.IsValid() {
 		ns = memory.NewResearchGlobalNamespace()
+	}
+	projectScope := "global"
+	if ns.IsProjectPrivate() {
+		projectScope = ns.ProjectID()
 	}
 
 	var atoms []memory.MemoryAtom
@@ -35,21 +41,20 @@ func (a *AdmissionAdapter) MapBundleToAdmission(bundle *ResearchBundle, targetSc
 	now := time.Now()
 
 	prov := memory.ProvenanceRecord{
-		RunID:          fmt.Sprintf("research_%s", bundle.BundleID),
-		EvidenceDigest: bundle.Digest,
-		Renderer:       "research_plane",
-		Tier:           fidelity.TierL0,
-		Environment:    "standards_catalog",
-		RuleVersion:    "research.v1",
-		CriticVersion:  "research_adapter",
-		ProjectScope:   ns.ProjectID(),
-		Timestamp:      now,
-		Outcome:        "ADMITTED",
+		RunID:           fmt.Sprintf("research_%s", bundle.BundleID),
+		EvidenceDigest:  bundle.Digest,
+		Renderer:        "research_plane",
+		Tier:            fidelity.TierL0,
+		Environment:     "standards_catalog",
+		RuleVersion:     "research.v1",
+		CriticVersion:   "research_adapter",
+		ProjectScope:    projectScope,
+		SourceNamespace: ns.String(),
+		Timestamp:       now,
+		Outcome:         "ADMITTED",
 	}
 
-	sourceMap := make(map[string]string) // URI -> AtomID
-
-	// 1. Map Research Sources into Atoms
+	sourceMap := make(map[string]string)
 	for _, src := range bundle.Sources {
 		sourceID := fmt.Sprintf("source_%s", src.Digest)
 		atom := memory.MemoryAtom{
@@ -75,7 +80,6 @@ func (a *AdmissionAdapter) MapBundleToAdmission(bundle *ResearchBundle, targetSc
 		sourceMap[src.URI] = sourceID
 	}
 
-	// 2. Map Claims into Candidate Rules / Axioms with DerivedFrom Edges
 	for _, claim := range bundle.Claims {
 		claimID := fmt.Sprintf("claim_%s", claim.ID)
 		ruleAtom := memory.MemoryAtom{
@@ -100,7 +104,6 @@ func (a *AdmissionAdapter) MapBundleToAdmission(bundle *ResearchBundle, targetSc
 		}
 		atoms = append(atoms, ruleAtom)
 
-		// Link Claim -> Source
 		if sourceAtomID, ok := sourceMap[claim.SourceURI]; ok {
 			edges = append(edges, memory.MemoryEdge{
 				FromID:     claimID,
@@ -113,19 +116,16 @@ func (a *AdmissionAdapter) MapBundleToAdmission(bundle *ResearchBundle, targetSc
 		}
 	}
 
-	return &memory.AdmissionBundle{Atoms: atoms, Edges: edges}, nil
+	return &memory.AdmissionBundle{SourceNamespace: ns, Atoms: atoms, Edges: edges}, nil
 }
 
-// IngestBundle validates and commits a ResearchBundle into SncSinCore epistemic memory.
 func (a *AdmissionAdapter) IngestBundle(ctx context.Context, bundle *ResearchBundle, targetScope memory.Namespace) error {
 	if a.store == nil {
 		return fmt.Errorf("admission adapter: memory store is nil")
 	}
-
 	admissionBundle, err := a.MapBundleToAdmission(bundle, targetScope)
 	if err != nil {
 		return err
 	}
-
 	return a.store.Commit(ctx, *admissionBundle)
 }
