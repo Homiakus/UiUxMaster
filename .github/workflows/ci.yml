@@ -65,6 +65,9 @@ jobs:
         shell: bash
         run: go test -bench=BenchmarkResolver -benchmem -run='^$' ./internal/impact > ./build/benchmarks/impact_scaling.txt
 
+      - name: Scope stage benchmark
+        run: go run ./cmd/uiuxscopebench -iterations 200 -warmup 20 | tee ./build/benchmarks/scope_stages.json
+
       - name: Benchmark smoke
         run: go run ./cmd/uiuxbench -nodes 100 -iterations 50 -warmup 10 -project-components 30 -project-iterations 3 -project-warmup 1 -wggo-iterations 3 -wggo-warmup 1 | tee ./build/benchmarks/uiuxbench.json
 
