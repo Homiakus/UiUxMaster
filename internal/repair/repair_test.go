@@ -57,7 +57,7 @@ func (m *mockRepairCollector) Collect(_ context.Context, req engine.ValidationRe
 	packet.Elements = elements
 
 	contentWidth := 1200.0
-	if strings.Contains(cssStr, "width: 2000px") && !strings.Contains(cssStr, "max-width: 100vw") {
+	if strings.Contains(cssStr, "width: 2000px") && !strings.Contains(cssStr, "width: auto !important") {
 		contentWidth = 2000.0
 	}
 	packet.Documents = []evidence.DocumentMetrics{{
