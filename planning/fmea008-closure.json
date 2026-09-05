@@ -1,15 +1,35 @@
 {
   "risk": "FMEA-008",
-  "status": "closure-candidate",
+  "status": "closed",
   "initial": {"severity": 9, "occurrence": 4, "detection": 7, "rpn": 252},
-  "residual_target": {"severity": 9, "occurrence": 1, "detection": 2, "rpn": 18},
+  "residual": {"severity": 9, "occurrence": 1, "detection": 2, "rpn": 18},
+  "closure": {
+    "issue": 10,
+    "pull_request": 22,
+    "merge_sha": "d90b2c4fc99facaed4575b9cbe4f4c47bb5af41e",
+    "ci_run": 224,
+    "axiom_control_run": 45,
+    "truthpath_run": 29
+  },
   "invariants": [
     "L1/L2 clean evidence is not legal PASS without exact current calibration",
     "calibration key binds approximate and TruthPath runtime identities",
+    "each claimed evidence class requires its own calibration record",
     "version/environment drift invalidates rather than widens tolerance",
     "missing/expired/weak calibration is evidence insufficiency",
     "L3 TruthPath remains authoritative",
     "legacy Axiom collector cannot issue PASS"
   ],
-  "evidence_pending": ["root ci", "axiom-control", "truthpath real Chromium calibration identity"]
+  "evidence": [
+    "TestFMEA008SameValidatedKeyRetainsLegalPass",
+    "TestFMEA008VersionMutationInvalidatesPreviouslyLegalPass",
+    "TestFMEA008ExpiredMissingAndWeakCorpusFailClosed",
+    "TestFMEA008CalibrationSnapshotPersistsExactKeyAndArtifact",
+    "TestFMEA008PipelineMissingCalibrationIsEvidenceInsufficiencyNotPass",
+    "TestFMEA008PipelineSameValidatedKeyAuthorizesPass",
+    "TestFMEA008PipelineVersionDriftRevokesPreviouslyLegalPass",
+    "TestTruthPathCalibrationRealChromium",
+    "TestAxiomFastCDPEndToEndIntegration"
+  ],
+  "reopen": "Reopen if any L1/L2 PASS bypasses PassAuthority, exact environment identity is weakened, stale/expired/weak records remain legal, evidence classes can substitute for each other, or real runtime drift CI fails."
 }
