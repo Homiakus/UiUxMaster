@@ -43,13 +43,13 @@ type RepairLoopRequest struct {
 // RepairMetrics records completion-quality evidence independently from the
 // optimization score used to choose patches.
 type RepairMetrics struct {
-	Iterations          int     `json:"iterations"`
-	CandidateEvaluations int    `json:"candidate_evaluations"`
-	OscillationCount    int     `json:"oscillation_count"`
-	HeldOutCases        int     `json:"held_out_cases"`
-	HeldOutFailures     int     `json:"held_out_failures"`
-	RegressionEscapes   int     `json:"regression_escapes"`
-	HeldOutEscapeRate   float64 `json:"held_out_escape_rate"`
+	Iterations           int     `json:"iterations"`
+	CandidateEvaluations int     `json:"candidate_evaluations"`
+	OscillationCount     int     `json:"oscillation_count"`
+	HeldOutCases         int     `json:"held_out_cases"`
+	HeldOutFailures      int     `json:"held_out_failures"`
+	RegressionEscapes    int     `json:"regression_escapes"`
+	HeldOutEscapeRate    float64 `json:"held_out_escape_rate"`
 }
 
 // RepairLoopResult summarizes proposal optimization plus independent completion
@@ -426,13 +426,23 @@ func repairStateDigest(html, css string) string {
 	return hex.EncodeToString(sum[:])
 }
 
+// findingStateDigest fingerprints semantic failure state rather than ephemeral
+// finding IDs, which contain per-iteration RunIDs. This makes repeated defects
+// detectable across iterations without revealing held-out probe identities.
 func findingStateDigest(findings []design.Finding) string {
-	ids := make([]string, 0, len(findings))
+	keys := make([]string, 0, len(findings))
 	for _, finding := range findings {
-		ids = append(ids, finding.ID+"|"+finding.Axis+"|"+string(finding.Severity))
+		keys = append(keys, strings.Join([]string{
+			finding.RuleID,
+			finding.Axis,
+			finding.Category,
+			finding.Title,
+			string(finding.Severity),
+			fmt.Sprintf("hard=%t", finding.HardConstraint),
+		}, "|"))
 	}
-	sort.Strings(ids)
-	sum := sha256.Sum256([]byte(strings.Join(ids, "\n")))
+	sort.Strings(keys)
+	sum := sha256.Sum256([]byte(strings.Join(keys, "\n")))
 	return hex.EncodeToString(sum[:])
 }
 
