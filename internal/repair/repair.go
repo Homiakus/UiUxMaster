@@ -470,11 +470,11 @@ func generatePatches(findings []design.Finding, currentHTML, currentCSS string) 
 			}
 
 		case strings.Contains(f.ID, "overflow"):
-			newCSS := currentCSS + "\n* { box-sizing: border-box; }\nbody { max-width: 100vw; overflow-x: hidden; }\n"
+			newCSS := currentCSS + "\n* { box-sizing: border-box; }\nhtml, body { max-width: 100%; }\nbody { width: auto !important; }\n"
 			patches = append(patches, Patch{
 				ID:          fmt.Sprintf("patch:overflow:%s", f.ID),
 				FindingID:   f.ID,
-				Description: "Constrain layout width to avoid horizontal scrollbar",
+				Description: "Remove forced body width and constrain layout without hiding overflow",
 				TargetType:  "css",
 				OldContent:  currentCSS,
 				NewContent:  newCSS,
