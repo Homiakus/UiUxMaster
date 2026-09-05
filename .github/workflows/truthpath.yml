@@ -43,9 +43,13 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Unit tests
-        run: go test ./internal/runtime/playwright -count=1
+        run: |
+          go test ./internal/runtime/playwright -count=1
+          go test ./internal/repair -count=1
 
-      - name: Real TruthPath Chromium probe, capture, scenario and dispatcher attestation
+      - name: Real TruthPath Chromium and independent repair final gate
         env:
           UIUX_TRUTHPATH_INTEGRATION: '1'
-        run: go test ./internal/runtime/playwright -run '^TestTruthPath(RealChromium|DispatcherRealChromium)$' -count=1 -v
+        run: |
+          go test ./internal/runtime/playwright -run '^TestTruthPath(RealChromium|DispatcherRealChromium)$' -count=1 -v
+          go test ./internal/repair -run '^TestRepairFinalGateRealChromium$' -count=1 -v
