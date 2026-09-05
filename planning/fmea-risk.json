@@ -23,18 +23,18 @@
     {"id":"FMEA-006","issue":8,"severity":7,"occurrence":9,"detection":3,"rpn":189,"priority":"high","status":"open","barrier":"planning_delivery_trust","residual_target_rpn":28},
     {"id":"FMEA-007","issue":9,"severity":9,"occurrence":3,"detection":7,"rpn":189,"priority":"high","status":"open","barrier":"operational_correctness","residual_target_rpn":18},
     {"id":"FMEA-008","issue":10,"severity":9,"occurrence":4,"detection":7,"rpn":252,"priority":"critical","status":"open","barrier":"verification_integrity","residual_target_rpn":18},
-    {"id":"FMEA-009","issue":11,"severity":9,"occurrence":5,"detection":7,"rpn":315,"priority":"critical","status":"open","barrier":"verification_integrity","residual_target_rpn":54},
+    {"id":"FMEA-009","issue":11,"severity":9,"occurrence":2,"detection":3,"rpn":54,"initial_rpn":315,"priority":"low-residual","status":"closed","barrier":"verification_integrity","closure_pr":20,"closure_merge_sha":"717e090b11e294dbdeb1032c1ed5bb99d4e4d017","evidence":{"ci_run":212,"truthpath_run":17,"self_approval_test":"TestHostRepairEngine_OptimizationCannotSelfApprove","same_oracle_test":"TestFMEA009SharedCollectorIsNotIndependent","heldout_adversarial_test":"TestFMEA009HeldOutRejectsVisibleScoreImprovement","memory_admission_test":"TestFMEA009MemoryAdmissionRequiresIndependentPass","memory_poisoning_test":"TestFMEA009HeldOutFailureBlocksMemoryPoisoning","oscillation_test":"TestFMEA009RepeatedFindingStateEscalates","baseline_integrity_test":"TestFMEA009OptimizationComparisonUsesImmutableOriginalBaseline","real_l3_final_gate_test":"TestRepairFinalGateRealChromium"}},
     {"id":"FMEA-010","issue":12,"severity":10,"occurrence":2,"detection":8,"rpn":160,"priority":"high","status":"open","barrier":"operational_correctness","residual_target_rpn":30},
     {"id":"FMEA-011","issue":13,"severity":8,"occurrence":4,"detection":4,"rpn":128,"priority":"high","status":"open","barrier":"planning_delivery_trust","residual_target_rpn":16},
     {"id":"FMEA-012","issue":14,"severity":7,"occurrence":5,"detection":5,"rpn":175,"priority":"high","status":"open","barrier":"operational_correctness","residual_target_rpn":14}
   ],
-  "execution_order": ["FMEA-009", "FMEA-003", "FMEA-008", "FMEA-005", "FMEA-007", "FMEA-012", "FMEA-010", "FMEA-006", "FMEA-011"],
-  "completed": ["FMEA-002", "FMEA-004", "FMEA-001"],
-  "next_risk": "FMEA-009",
+  "execution_order": ["FMEA-003", "FMEA-008", "FMEA-005", "FMEA-007", "FMEA-012", "FMEA-010", "FMEA-006", "FMEA-011"],
+  "completed": ["FMEA-002", "FMEA-004", "FMEA-001", "FMEA-009"],
+  "next_risk": "FMEA-003",
   "metrics": {
-    "open_critical_risks": 3,
+    "open_critical_risks": 2,
     "open_high_risks": 6,
-    "sum_open_rpn": 1928,
-    "sum_closed_residual_rpn": 58
+    "sum_open_rpn": 1613,
+    "sum_closed_residual_rpn": 112
   }
 }
