@@ -69,8 +69,12 @@ func ParseNamespace(raw string) (Namespace, error) {
 	if trimmed == "" {
 		return Namespace{}, fmt.Errorf("%w: empty namespace", ErrInvalidNamespace)
 	}
-	if trimmed == PrefixKnowledgeGlobal { return NewGlobalDesignNamespace(), nil }
-	if trimmed == PrefixResearchGlobal { return NewResearchGlobalNamespace(), nil }
+	if trimmed == PrefixKnowledgeGlobal {
+		return NewGlobalDesignNamespace(), nil
+	}
+	if trimmed == PrefixResearchGlobal {
+		return NewResearchGlobalNamespace(), nil
+	}
 	if strings.HasPrefix(trimmed, PrefixKnowledgeProject) {
 		return NewProjectKnowledgeNamespace(strings.TrimPrefix(trimmed, PrefixKnowledgeProject))
 	}
@@ -83,18 +87,22 @@ func ParseNamespace(raw string) (Namespace, error) {
 	return Namespace{}, fmt.Errorf("%w: unknown prefix %q", ErrInvalidNamespace, trimmed)
 }
 
-func (n Namespace) String() string { return n.raw }
-func (n Namespace) Category() string { return n.category }
-func (n Namespace) ProjectID() string { return n.projectID }
-func (n Namespace) SkillID() string { return n.skillID }
-func (n Namespace) IsProjectPrivate() bool { return n.projectID != "" }
-func (n Namespace) IsGlobal() bool { return n.raw == PrefixKnowledgeGlobal || n.raw == PrefixResearchGlobal }
-func (n Namespace) IsValid() bool { _, err := ParseNamespace(n.raw); return err == nil }
+func (n Namespace) String() string          { return n.raw }
+func (n Namespace) Category() string        { return n.category }
+func (n Namespace) ProjectID() string       { return n.projectID }
+func (n Namespace) SkillID() string         { return n.skillID }
+func (n Namespace) IsProjectPrivate() bool  { return n.projectID != "" }
+func (n Namespace) IsGlobal() bool           { return n.raw == PrefixKnowledgeGlobal || n.raw == PrefixResearchGlobal }
+func (n Namespace) IsValid() bool            { _, err := ParseNamespace(n.raw); return err == nil }
 func (n Namespace) Equal(other Namespace) bool { return n.raw != "" && n.raw == other.raw }
 
 func (n Namespace) MarshalJSON() ([]byte, error) {
-	if n.raw == "" { return []byte("null"), nil }
-	if !n.IsValid() { return nil, ErrInvalidNamespace }
+	if n.raw == "" {
+		return []byte("null"), nil
+	}
+	if !n.IsValid() {
+		return nil, ErrInvalidNamespace
+	}
 	return json.Marshal(n.raw)
 }
 
@@ -104,9 +112,13 @@ func (n *Namespace) UnmarshalJSON(data []byte) error {
 		return nil
 	}
 	var raw string
-	if err := json.Unmarshal(data, &raw); err != nil { return err }
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
 	parsed, err := ParseNamespace(raw)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	*n = parsed
 	return nil
 }
@@ -115,8 +127,12 @@ func (n *Namespace) UnmarshalJSON(data []byte) error {
 // partitions plus global knowledge. A global request never gains project-private
 // visibility. Missing request scope is denied by callers before this function.
 func CanAccess(requestScope Namespace, targetNamespace Namespace) bool {
-	if !requestScope.IsValid() || !targetNamespace.IsValid() { return false }
-	if targetNamespace.IsGlobal() { return true }
+	if !requestScope.IsValid() || !targetNamespace.IsValid() {
+		return false
+	}
+	if targetNamespace.IsGlobal() {
+		return true
+	}
 	if targetNamespace.IsProjectPrivate() {
 		return requestScope.projectID != "" && requestScope.projectID == targetNamespace.projectID
 	}
@@ -126,12 +142,33 @@ func CanAccess(requestScope Namespace, targetNamespace Namespace) bool {
 	return false
 }
 
+// CanMutate is stricter than CanAccess. Read visibility of global knowledge does
+// not grant a project authority to retract/supersede it. Mutation stays inside
+// the same global namespace, same project, or same skill partition.
+func CanMutate(requestScope Namespace, targetNamespace Namespace) bool {
+	if !requestScope.IsValid() || !targetNamespace.IsValid() {
+		return false
+	}
+	if targetNamespace.IsGlobal() {
+		return requestScope.IsGlobal() && requestScope.Equal(targetNamespace)
+	}
+	if targetNamespace.IsProjectPrivate() {
+		return requestScope.IsProjectPrivate() && requestScope.ProjectID() == targetNamespace.ProjectID()
+	}
+	if targetNamespace.SkillID() != "" {
+		return requestScope.SkillID() != "" && requestScope.SkillID() == targetNamespace.SkillID()
+	}
+	return false
+}
+
 // CanAdmitOrdinary is the write firewall for non-promotion admission. Ordinary
 // admission may move evidence->knowledge within the same project, but it can
 // never broaden visibility. Global data stays in the exact same global
 // namespace; skill metadata stays with the same skill.
 func CanAdmitOrdinary(source, target Namespace) bool {
-	if !source.IsValid() || !target.IsValid() { return false }
+	if !source.IsValid() || !target.IsValid() {
+		return false
+	}
 	if source.IsProjectPrivate() {
 		return target.IsProjectPrivate() && source.ProjectID() == target.ProjectID()
 	}
