@@ -28,7 +28,7 @@ func TestFMEA007CommitOnceReusesReceiptWithoutDuplicatingGraph(t *testing.T) {
 	if err != nil { t.Fatal(err) }
 	second, err := store.CommitOnce(ctx, op, bundle)
 	if err != nil { t.Fatal(err) }
-	if !first.Applied || first.Reused || second.Applied || !second.Reused || first.OperationID != second.OperationID {
+	if !first.Applied || first.Reused || second.Applied || !second.Reused || first.OperationID != second.OperationID || first.LogicalID != second.LogicalID {
 		t.Fatalf("first=%#v second=%#v", first, second)
 	}
 	edges, err := store.GetEdges(ctx, "pattern:a")
@@ -60,20 +60,13 @@ func TestFMEA007LegacyCommitStillDeduplicatesEdgesAndConflicts(t *testing.T) {
 	if stored == nil || len(stored.Conflicts) != 1 { t.Fatalf("atom conflicts=%#v", stored) }
 }
 
-func TestFMEA007CommitOnceRejectsOperationPayloadConflict(t *testing.T) {
+func TestFMEA007LogicalMemoryOperationRejectsPayloadDrift(t *testing.T) {
 	ctx := context.Background()
 	store := NewEpMemoryStore()
-	op := sideeffect.Operation{RunID: "run", Activity: "memory", Kind: "memory_admission", PayloadDigest: "sha256:one", RetryClass: sideeffect.RetryIdempotent}
+	op := sideeffect.Operation{RunID: "run", Activity: "memory", Iteration: 1, Kind: "memory_admission", PayloadDigest: "sha256:one", RetryClass: sideeffect.RetryIdempotent}
 	if _, err := store.CommitOnce(ctx, op, AdmissionBundle{}); err != nil { t.Fatal(err) }
-	// Operation ID includes payload by design, so a semantically different payload
-	// is a different operation. Explicit conflict protection is exercised by
-	// corrupting/reusing the durable receipt slot below, matching recovery-defense behavior.
-	id, _ := op.ID()
-	store.mu.Lock()
-	prior := store.committedOperations[id]
-	prior.PayloadDigest = "sha256:other"
-	store.committedOperations[id] = prior
-	store.mu.Unlock()
-	_, err := store.CommitOnce(ctx, op, AdmissionBundle{})
+	mutated := op
+	mutated.PayloadDigest = "sha256:two"
+	_, err := store.CommitOnce(ctx, mutated, AdmissionBundle{})
 	if !errors.Is(err, sideeffect.ErrOperationConflict) { t.Fatalf("err=%v want operation conflict", err) }
 }
