@@ -29,7 +29,7 @@ func repairPacketFromSource(req engine.ValidationRequest, tier, name string) evi
 			Height:      800,
 			DeviceScale: 1,
 		},
-		Renderer: evidence.RendererRef{Tier: tier, Name: name, Version: "test-v1"},
+		Renderer:    evidence.RendererRef{Tier: tier, Name: name, Version: "test-v1"},
 		Diagnostics: &evidence.DiagnosticsEvidence{Complete: true},
 	}
 
@@ -39,17 +39,17 @@ func repairPacketFromSource(req engine.ValidationRequest, tier, name string) evi
 		})
 	}
 	if strings.Contains(strings.ToLower(htmlStr), "<button") {
-		name := ""
+		buttonName := ""
 		if strings.Contains(htmlStr, `aria-label="Action Button"`) {
-			name = "Action Button"
+			buttonName = "Action Button"
 		}
 		packet.Elements = append(packet.Elements, evidence.ElementRef{
-			ID: "cta-btn", Tag: "button", Role: "button", Name: name, Visible: true, Clickable: true,
+			ID: "cta-btn", Tag: "button", Role: "button", Name: buttonName, Visible: true, Clickable: true,
 		})
 	}
 
 	contentWidth := 1200.0
-	if strings.Contains(cssStr, "width: 2000px") && !strings.Contains(cssStr, "max-width: 100vw") {
+	if strings.Contains(cssStr, "width: 2000px") && !strings.Contains(cssStr, "width: auto !important") {
 		contentWidth = 2000
 	}
 	packet.Documents = []evidence.DocumentMetrics{{ContentWidth: contentWidth, ContentHeight: 800}}
@@ -65,14 +65,15 @@ func (passHeldOutProbe) Evaluate(_ context.Context, req HeldOutEvaluationRequest
 	return nil
 }
 
-type rejectOverflowHiddenProbe struct{}
+type rejectForcedWidthOverrideProbe struct{}
 
-func (rejectOverflowHiddenProbe) Evaluate(_ context.Context, req HeldOutEvaluationRequest) error {
-	// Private requirement: clipping/hidden overflow is not an acceptable substitute
-	// for preserving access to wide content. The optimization loop never sees this
-	// predicate and therefore cannot train directly against it.
-	if strings.Contains(strings.ToLower(req.CandidateCSS), "overflow-x: hidden") {
-		return errors.New("private protected-content probe rejected overflow clipping")
+func (rejectForcedWidthOverrideProbe) Evaluate(_ context.Context, req HeldOutEvaluationRequest) error {
+	// Private requirement: this synthetic fixture represents a fixed-width canvas
+	// whose authored width must be preserved. The optimization loop does not know
+	// this requirement, so a locally attractive forced width override must still be
+	// rejectable by independent held-out evidence.
+	if strings.Contains(strings.ToLower(req.CandidateCSS), "width: auto !important") {
+		return errors.New("private fixed-canvas probe rejected forced width override")
 	}
 	return nil
 }
@@ -81,7 +82,7 @@ type stubbornOverflowCollector struct{}
 
 func (stubbornOverflowCollector) Collect(_ context.Context, req engine.ValidationRequest, _ engine.ValidationPlan) (evidence.Packet, error) {
 	return evidence.Packet{
-		RunID: req.RunID,
+		RunID:    req.RunID,
 		Renderer: evidence.RendererRef{Tier: "L2", Name: "stubborn-browser"},
 		Viewport: evidence.Viewport{Width: 1280, Height: 800},
 		Documents: []evidence.DocumentMetrics{{ContentWidth: 2000, ContentHeight: 800}},
@@ -135,7 +136,7 @@ func TestFMEA009HeldOutRejectsVisibleScoreImprovement(t *testing.T) {
 		Collector: &mockL3RepairCollector{},
 		VerPolicy: verifier.DefaultPolicy(),
 	}
-	gate := NewPipelineFinalGate(finalPipeline, NewPrivateHeldOutSuite(rejectOverflowHiddenProbe{}))
+	gate := NewPipelineFinalGate(finalPipeline, NewPrivateHeldOutSuite(rejectForcedWidthOverrideProbe{}))
 	repairEngine := NewWithFinalGate(optimization, gate)
 	faultyHTML, faultyCSS := repairFixture()
 
@@ -222,7 +223,7 @@ func TestFMEA009MemoryAdmissionRequiresIndependentPass(t *testing.T) {
 func TestFMEA009HeldOutFailureBlocksMemoryPoisoning(t *testing.T) {
 	optimization := &engine.Pipeline{Collector: &mockRepairCollector{}, VerPolicy: verifier.DefaultPolicy()}
 	finalPipeline := &engine.Pipeline{Collector: &mockL3RepairCollector{}, VerPolicy: verifier.DefaultPolicy()}
-	gate := NewPipelineFinalGate(finalPipeline, NewPrivateHeldOutSuite(rejectOverflowHiddenProbe{}))
+	gate := NewPipelineFinalGate(finalPipeline, NewPrivateHeldOutSuite(rejectForcedWidthOverrideProbe{}))
 	store := memory.NewEpMemoryStore()
 	repairEngine := NewWithMemoryAndFinalGate(optimization, gate, store)
 	faultyHTML, faultyCSS := repairFixture()
