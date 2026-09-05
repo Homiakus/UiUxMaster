@@ -9,8 +9,8 @@ import (
 )
 
 var (
-	ErrNonRegressionFailed = errors.New("evolution: candidate regressed on protected axes or score")
-	ErrInvalidCandidate    = errors.New("evolution: invalid candidate version or heuristic")
+	ErrNonRegressionFailed   = errors.New("evolution: candidate regressed on protected axes or score")
+	ErrInvalidCandidate      = errors.New("evolution: invalid candidate version or heuristic")
 	ErrPromotionUnauthorized = errors.New("evolution: promotion authorization gate failed")
 )
 
@@ -57,4 +57,18 @@ type EvaluationReport struct {
 	HardViolations int      `json:"hard_violations"`
 	PassedGate     bool     `json:"passed_gate"`
 	Rationale      string   `json:"rationale"`
+}
+
+// PromotionAuthorization binds the exact active/candidate/corpus tuple to an
+// independent verifier. PromoteCandidate accepts no implicit "we ran shadow
+// earlier" state: this durable-shaped token must exist and match the corpus.
+type PromotionAuthorization struct {
+	ActiveVersionID    string    `json:"active_version_id"`
+	CandidateVersionID string    `json:"candidate_version_id"`
+	CorpusDigest       string    `json:"corpus_digest"`
+	VerifierID         string    `json:"verifier_id"`
+	ReplayPassed       bool      `json:"replay_passed"`
+	ShadowPassed       bool      `json:"shadow_passed"`
+	Rationale          string    `json:"rationale"`
+	IssuedAt           time.Time `json:"issued_at"`
 }
