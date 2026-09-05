@@ -14,7 +14,6 @@ import (
 	"github.com/Homiakus/UiUxMaster/internal/evidenceplan"
 	"github.com/Homiakus/UiUxMaster/internal/fidelity"
 	"github.com/Homiakus/UiUxMaster/internal/runtime/fastrender"
-	"github.com/Homiakus/UiUxMaster/internal/visualdiff"
 )
 
 // StaticCollector executes Tier L0 static evidence collection without a browser or renderer.
@@ -38,16 +37,11 @@ type DefaultStaticCollector struct{}
 func (s *DefaultStaticCollector) CollectL0(_ context.Context, req engine.ValidationRequest, _ evidenceplan.Plan) (evidence.Packet, error) {
 	docs := make([]evidence.DocumentMetrics, 0, len(req.ChangedFiles))
 	for _, f := range req.ChangedFiles {
-		docs = append(docs, evidence.DocumentMetrics{
-			URL: "file://" + f,
-		})
+		docs = append(docs, evidence.DocumentMetrics{URL: "file://" + f})
 	}
 	return evidence.Packet{
 		RunID: req.RunID,
-		Renderer: evidence.RendererRef{
-			Tier: string(engine.TierStatic),
-			Name: "static-collector",
-		},
+		Renderer: evidence.RendererRef{Tier: string(engine.TierStatic), Name: "static-collector"},
 		Documents: docs,
 	}, nil
 }
@@ -170,8 +164,8 @@ func (d *Dispatcher) collectL1(ctx context.Context, req engine.ValidationRequest
 			packet, l2Err := d.collectL2(ctx, req, plan)
 			if l2Err == nil {
 				packet.RuntimeIssues = append(packet.RuntimeIssues, evidence.RuntimeIssue{
-					Code:     "L1_ESCALATION",
-					Message:  "L1 renderer cannot prove geometry/styles; escalated to L2",
+					Code: "L1_ESCALATION",
+					Message: "L1 renderer cannot prove geometry/styles; escalated to L2",
 					Severity: evidence.SeverityInfo,
 				})
 			}
@@ -188,13 +182,13 @@ func (d *Dispatcher) collectL1(ctx context.Context, req engine.ValidationRequest
 	}
 
 	renderReq := fastrender.Request{
-		HTML:    req.HTML,
-		CSS:     req.CSS,
+		HTML: req.HTML,
+		CSS: req.CSS,
 		BaseURL: req.BaseURL,
-		Width:   vp.Width,
-		Height:  vp.Height,
-		DPR:     vp.DeviceScale,
-		Theme:   theme,
+		Width: vp.Width,
+		Height: vp.Height,
+		DPR: vp.DeviceScale,
+		Theme: theme,
 	}
 
 	var ev fastrender.Evidence
@@ -206,11 +200,9 @@ func (d *Dispatcher) collectL1(ctx context.Context, req engine.ValidationRequest
 		if scale <= 0 {
 			scale = 1
 		}
+		_ = scale // reserved for future renderer scale support; current clip is CSS-pixel based.
 		clip := image.Rect(int(r.X), int(r.Y), int(r.X+r.Width), int(r.Y+r.Height))
-		ev, err = d.l1.CaptureRegion(ctx, fastrender.RegionRequest{
-			Render: renderReq,
-			Clip:   clip,
-		})
+		ev, err = d.l1.CaptureRegion(ctx, fastrender.RegionRequest{Render: renderReq, Clip: clip})
 	} else {
 		ev, err = d.l1.Render(ctx, renderReq)
 	}
@@ -220,8 +212,8 @@ func (d *Dispatcher) collectL1(ctx context.Context, req engine.ValidationRequest
 			packet, l2Err := d.collectL2(ctx, req, plan)
 			if l2Err == nil {
 				packet.RuntimeIssues = append(packet.RuntimeIssues, evidence.RuntimeIssue{
-					Code:     "L1_ESCALATION",
-					Message:  fmt.Sprintf("L1 renderer unsupported: %v; escalated to L2", err),
+					Code: "L1_ESCALATION",
+					Message: fmt.Sprintf("L1 renderer unsupported: %v; escalated to L2", err),
 					Severity: evidence.SeverityInfo,
 				})
 			}
@@ -236,15 +228,15 @@ func (d *Dispatcher) collectL1(ctx context.Context, req engine.ValidationRequest
 	packet := evidence.Packet{
 		RunID: req.RunID,
 		Renderer: evidence.RendererRef{
-			Tier:       string(engine.TierFastRender),
-			Name:       caps.Name,
-			Version:    caps.Version,
+			Tier: string(engine.TierFastRender),
+			Name: caps.Name,
+			Version: caps.Version,
 			FidelityID: ev.FidelityID,
 		},
 		Viewport: vp,
 		Latency: evidence.RuntimeLatency{
 			PixelsMS: float64(ev.Latency.Paint.Milliseconds()),
-			TotalMS:  totalMS,
+			TotalMS: totalMS,
 		},
 	}
 
@@ -253,13 +245,13 @@ func (d *Dispatcher) collectL1(ctx context.Context, req engine.ValidationRequest
 		bounds := ev.RGBA.Bounds()
 		packet.Pixels = &evidence.PixelEvidence{
 			Bounds: evidence.Rect{
-				X:      float64(bounds.Min.X),
-				Y:      float64(bounds.Min.Y),
-				Width:  float64(bounds.Dx()),
+				X: float64(bounds.Min.X),
+				Y: float64(bounds.Min.Y),
+				Width: float64(bounds.Dx()),
 				Height: float64(bounds.Dy()),
 			},
-			Width:        bounds.Dx(),
-			Height:       bounds.Dy(),
+			Width: bounds.Dx(),
+			Height: bounds.Dy(),
 			EncodedBytes: len(ev.RGBA.Pix),
 			DigestSHA256: hex.EncodeToString(hash[:]),
 		}
@@ -267,47 +259,17 @@ func (d *Dispatcher) collectL1(ctx context.Context, req engine.ValidationRequest
 			packet.VisualRegions = append(packet.VisualRegions, evidence.VisualRegion{
 				ID: "planned-region",
 				Bounds: evidence.Rect{
-					X:      plan.EvidencePlan.Region.X,
-					Y:      plan.EvidencePlan.Region.Y,
-					Width:  plan.EvidencePlan.Region.Width,
+					X: plan.EvidencePlan.Region.X,
+					Y: plan.EvidencePlan.Region.Y,
+					Width: plan.EvidencePlan.Region.Width,
 					Height: plan.EvidencePlan.Region.Height,
 				},
 			})
 		}
 
 		if req.BaselineRGBA != nil {
-			diffRes, diffErr := visualdiff.CompareRGBA(req.BaselineRGBA, ev.RGBA, visualdiff.Options{
-				ChannelTolerance: req.Tolerance,
-			})
-			if diffErr != nil {
-				packet.RuntimeIssues = append(packet.RuntimeIssues, evidence.RuntimeIssue{
-					Code:     "VISUALDIFF_ERROR",
-					Message:  fmt.Sprintf("visualdiff error: %v", diffErr),
-					Severity: evidence.SeverityLow,
-				})
-			} else if diffRes.ChangedPixels > 0 {
-				diffBounds := evidence.Rect{
-					X:      float64(diffRes.Bounds.Min.X),
-					Y:      float64(diffRes.Bounds.Min.Y),
-					Width:  float64(diffRes.Bounds.Dx()),
-					Height: float64(diffRes.Bounds.Dy()),
-				}
-				packet.VisualRegions = append(packet.VisualRegions, evidence.VisualRegion{
-					ID:            "visualdiff-changed-roi",
-					Bounds:        diffBounds,
-					ChangedPixels: int64(diffRes.ChangedPixels),
-					DiffRatio:     diffRes.ChangeRatio,
-				})
-				packet.VisualFindings = append(packet.VisualFindings, evidence.VisualFinding{
-					ID:          fmt.Sprintf("finding:visualdiff:%s", req.RunID),
-					Axis:        "visual_regression",
-					Title:       "Visual difference detected against baseline",
-					Description: fmt.Sprintf("%d changed pixels (ratio: %.4f, max delta: %d)", diffRes.ChangedPixels, diffRes.ChangeRatio, diffRes.MaxDelta),
-					Severity:    evidence.SeverityMedium,
-					Confidence:  1.0,
-					Source:      "pixel_diff",
-					RegionID:    "visualdiff-changed-roi",
-				})
+			if err := compareProtectedBaseline(&packet, req, caps, ev, theme); err != nil {
+				return evidence.Packet{}, err
 			}
 		}
 	}
@@ -315,12 +277,12 @@ func (d *Dispatcher) collectL1(ctx context.Context, req engine.ValidationRequest
 	if len(ev.Boxes) > 0 {
 		for i, box := range ev.Boxes {
 			packet.Elements = append(packet.Elements, evidence.ElementRef{
-				ID:   fmt.Sprintf("box-%d", i),
+				ID: fmt.Sprintf("box-%d", i),
 				Role: box.Kind,
 				Bounds: evidence.Rect{
-					X:      float64(box.Bounds.Min.X),
-					Y:      float64(box.Bounds.Min.Y),
-					Width:  float64(box.Bounds.Dx()),
+					X: float64(box.Bounds.Min.X),
+					Y: float64(box.Bounds.Min.Y),
+					Width: float64(box.Bounds.Dx()),
 					Height: float64(box.Bounds.Dy()),
 				},
 			})
@@ -329,8 +291,8 @@ func (d *Dispatcher) collectL1(ctx context.Context, req engine.ValidationRequest
 
 	for _, w := range ev.Warnings {
 		packet.RuntimeIssues = append(packet.RuntimeIssues, evidence.RuntimeIssue{
-			Code:     "RENDER_WARNING",
-			Message:  w,
+			Code: "RENDER_WARNING",
+			Message: w,
 			Severity: evidence.SeverityLow,
 		})
 	}

@@ -19,9 +19,9 @@ func TestBaselineStore_PutGetList(t *testing.T) {
 	img.Set(10, 10, color.RGBA{R: 255, A: 255})
 
 	ref := visualdiff.BaselineReference{
-		ID:       "home-desktop",
-		Scenario: "landing",
-		Viewport: evidence.Viewport{Width: 1280, Height: 800},
+		ID:          "home-desktop",
+		Scenario:    "landing",
+		Environment: testEnvironment(),
 	}
 
 	err := store.Put(ctx, ref, img)
@@ -39,6 +39,12 @@ func TestBaselineStore_PutGetList(t *testing.T) {
 	if gotRef.DigestSHA256 == "" {
 		t.Errorf("expected non-empty DigestSHA256")
 	}
+	if gotRef.EnvironmentKey == "" {
+		t.Errorf("expected non-empty EnvironmentKey")
+	}
+	if gotRef.Viewport.Width != 1280 || gotRef.Viewport.Height != 800 {
+		t.Errorf("viewport=%#v", gotRef.Viewport)
+	}
 	if gotImg == nil || gotImg.Bounds().Dx() != 100 {
 		t.Errorf("invalid image retrieved")
 	}
@@ -55,15 +61,16 @@ func TestBaselineStore_ProtectedBaselineRejectsOverwrite(t *testing.T) {
 
 	img := image.NewRGBA(image.Rect(0, 0, 50, 50))
 	ref := visualdiff.BaselineReference{
-		ID:        "protected-golden",
-		Protected: true,
+		ID:          "protected-golden",
+		Protected:   true,
+		Environment: testEnvironment(),
 	}
 
 	if err := store.Put(ctx, ref, img); err != nil {
 		t.Fatalf("initial put failed: %v", err)
 	}
 
-	// Attempt overwrite
+	// Attempt overwrite through the create-only path.
 	err := store.Put(ctx, ref, img)
 	if err == nil {
 		t.Fatal("expected error overwriting protected baseline, got nil")
@@ -148,25 +155,13 @@ func TestLocalizeDifferences_ClustersAndIntersectsDOM(t *testing.T) {
 
 	for _, reg := range regions {
 		for _, elID := range reg.ElementIDs {
-			if elID == "btn-cta" {
-				ctaMatched = true
-			}
-			if elID == "footer-link" {
-				footerMatched = true
-			}
-			if elID == "unrelated-sidebar" {
-				sidebarMatched = true
-			}
+			if elID == "btn-cta" { ctaMatched = true }
+			if elID == "footer-link" { footerMatched = true }
+			if elID == "unrelated-sidebar" { sidebarMatched = true }
 		}
 	}
 
-	if !ctaMatched {
-		t.Errorf("expected btn-cta to be correlated with cluster 1")
-	}
-	if !footerMatched {
-		t.Errorf("expected footer-link to be correlated with cluster 2")
-	}
-	if sidebarMatched {
-		t.Errorf("unrelated-sidebar should not match any diff cluster")
-	}
+	if !ctaMatched { t.Errorf("expected btn-cta to be correlated with cluster 1") }
+	if !footerMatched { t.Errorf("expected footer-link to be correlated with cluster 2") }
+	if sidebarMatched { t.Errorf("unrelated-sidebar should not match any diff cluster") }
 }
