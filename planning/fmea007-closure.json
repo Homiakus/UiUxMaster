@@ -1,0 +1,16 @@
+{
+  "risk": "FMEA-007",
+  "status": "closure-candidate",
+  "initial": {"severity": 9, "occurrence": 3, "detection": 7, "rpn": 189},
+  "residual_target": {"severity": 9, "occurrence": 1, "detection": 2, "rpn": 18},
+  "invariants": [
+    "attempt number is never part of semantic side-effect identity",
+    "same logical operation and payload returns the original receipt without another effect",
+    "same logical operation with different payload fails closed",
+    "new source mutation requires exact expected-revision CAS",
+    "source state and receipt persist atomically",
+    "memory admission is operation-idempotent and graph-edge/conflict deduplicated",
+    "Axiom durable history exposes a stable idempotency key across retry attempts"
+  ],
+  "evidence_pending": ["root ci", "axiom-control crash-window replay", "truthpath regression gate"]
+}
