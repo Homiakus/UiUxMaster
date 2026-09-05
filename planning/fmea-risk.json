@@ -19,7 +19,7 @@
     {"id":"FMEA-002","issue":4,"severity":10,"occurrence":1,"detection":2,"rpn":20,"initial_rpn":420,"priority":"low-residual","status":"closed","barrier":"verification_integrity","closure_pr":17,"closure_merge_sha":"468abe87ac76d54b3e887951e30b71e300c450d7","evidence":{"ci_run":191,"axiom_control_run":33,"scope_equivalence_test":"TestPipelineAdapterPreservesCanonicalScopeAndRoute","anti_narrowing_test":"TestPipelineAdapterDoesNotAllowAxiomPlanToNarrowCanonicalRequest","real_browser_test":"TestAxiomFastCDPEndToEndIntegration"}},
     {"id":"FMEA-003","issue":5,"severity":10,"occurrence":1,"detection":2,"rpn":20,"initial_rpn":280,"priority":"low-residual","status":"closed","barrier":"verification_integrity","closure_pr":21,"closure_merge_sha":"384158d3da78edb9fd7fb5b864106d736ad9ab5b","evidence":{"ci_run":217,"axiom_control_run":39,"truthpath_run":22,"stale_revision_test":"TestFMEA003StaleRevisionCannotReleaseEvidence","wrong_revision_test":"TestFMEA003NewerEpochWithWrongRevisionFailsClosed","matching_revision_test":"TestFMEA003MatchingRevisionReleasesWaiter","legacy_signal_test":"TestFMEA003LegacyRevisionlessSignalCannotSatisfyBoundWaiter","packet_provenance_test":"TestFMEA003PacketCarriesExpectedAndObservedRevision","real_hmr_test":"TestAxiomFastCDPEndToEndIntegration"}},
     {"id":"FMEA-004","issue":6,"severity":9,"occurrence":1,"detection":2,"rpn":18,"initial_rpn":360,"priority":"low-residual","status":"closed","barrier":"verification_integrity","closure_pr":18,"closure_merge_sha":"7433e1bd39c431ab0ac69181e2caf0fde9dd1921","evidence":{"ci_run":197,"truthpath_run":2,"real_browser_test":"TestTruthPathRealChromium","missing_worker_test":"TestTruthPathMissingWorkerIsUnavailable","capability_test":"TestTruthPathProbeAdvertisesOnlyLaunchableVersionedBrowsers","version_drift_test":"TestTruthPathProbeRejectsProtocolAndRuntimeVersionDrift","identity_drift_test":"TestTruthPathCaptureRejectsIdentityChangeAfterProbe"}},
-    {"id":"FMEA-005","issue":7,"severity":6,"occurrence":10,"detection":4,"rpn":240,"priority":"high","status":"open","barrier":"operational_correctness","residual_target_rpn":12},
+    {"id":"FMEA-005","issue":7,"severity":6,"occurrence":1,"detection":2,"rpn":12,"initial_rpn":240,"priority":"low-residual","status":"closed","barrier":"operational_correctness","closure_pr":23,"closure_merge_sha":"b574f86870c5e604998347f941fd961e3a8fc657","evidence":{"ci_run":230,"axiom_control_run":47,"truthpath_run":35,"impact_delay_test":"TestFMEA005ImpactDelayAffectsOnlyImpactTelemetry","invalidation_delay_test":"TestFMEA005InvalidationDelayAffectsOnlyInvalidationTelemetry","accounting_test":"TestFMEA005StageCountersAndAccountingAreIndependent","benchmark_artifact_id":9965578584,"benchmark_artifact_sha256":"9fb59af3c563330d901f97b3bc4b922a0fed8a9602041305232b8f5df5e2ebb0","benchmark_file":"scope_stages.json"}},
     {"id":"FMEA-006","issue":8,"severity":7,"occurrence":9,"detection":3,"rpn":189,"priority":"high","status":"open","barrier":"planning_delivery_trust","residual_target_rpn":28},
     {"id":"FMEA-007","issue":9,"severity":9,"occurrence":3,"detection":7,"rpn":189,"priority":"high","status":"open","barrier":"operational_correctness","residual_target_rpn":18},
     {"id":"FMEA-008","issue":10,"severity":9,"occurrence":1,"detection":2,"rpn":18,"initial_rpn":252,"priority":"low-residual","status":"closed","barrier":"verification_integrity","closure_pr":22,"closure_merge_sha":"d90b2c4fc99facaed4575b9cbe4f4c47bb5af41e","evidence":{"ci_run":224,"axiom_control_run":45,"truthpath_run":29,"same_key_test":"TestFMEA008SameValidatedKeyRetainsLegalPass","version_mutation_test":"TestFMEA008VersionMutationInvalidatesPreviouslyLegalPass","expiry_coverage_quality_test":"TestFMEA008ExpiredMissingAndWeakCorpusFailClosed","persistence_test":"TestFMEA008CalibrationSnapshotPersistsExactKeyAndArtifact","pipeline_missing_test":"TestFMEA008PipelineMissingCalibrationIsEvidenceInsufficiencyNotPass","pipeline_valid_test":"TestFMEA008PipelineSameValidatedKeyAuthorizesPass","pipeline_drift_test":"TestFMEA008PipelineVersionDriftRevokesPreviouslyLegalPass","real_runtime_test":"TestTruthPathCalibrationRealChromium","real_axiom_test":"TestAxiomFastCDPEndToEndIntegration"}},
@@ -28,13 +28,13 @@
     {"id":"FMEA-011","issue":13,"severity":8,"occurrence":4,"detection":4,"rpn":128,"priority":"high","status":"open","barrier":"planning_delivery_trust","residual_target_rpn":16},
     {"id":"FMEA-012","issue":14,"severity":7,"occurrence":5,"detection":5,"rpn":175,"priority":"high","status":"open","barrier":"operational_correctness","residual_target_rpn":14}
   ],
-  "execution_order": ["FMEA-005", "FMEA-007", "FMEA-012", "FMEA-010", "FMEA-006", "FMEA-011"],
-  "completed": ["FMEA-002", "FMEA-004", "FMEA-001", "FMEA-009", "FMEA-003", "FMEA-008"],
-  "next_risk": "FMEA-005",
+  "execution_order": ["FMEA-007", "FMEA-012", "FMEA-010", "FMEA-006", "FMEA-011"],
+  "completed": ["FMEA-002", "FMEA-004", "FMEA-001", "FMEA-009", "FMEA-003", "FMEA-008", "FMEA-005"],
+  "next_risk": "FMEA-007",
   "metrics": {
     "open_critical_risks": 0,
-    "open_high_risks": 6,
-    "sum_open_rpn": 1081,
-    "sum_closed_residual_rpn": 150
+    "open_high_risks": 5,
+    "sum_open_rpn": 841,
+    "sum_closed_residual_rpn": 162
   }
 }
