@@ -98,11 +98,14 @@ func (p *Pipeline) Execute(ctx context.Context, req ValidationRequest) (Pipeline
 	plan := PlanValidationRoute(req, assessment, caps)
 	elapsedRoute := float64(time.Since(startRoute).Microseconds()) / 1000.0
 
-	// 4. Runtime Dispatch & Evidence Collection (L0 / L1 / L2)
+	// 4. Runtime Dispatch & Evidence Collection (L0 / L1 / L2 / L3)
 	startCollect := time.Now()
 	packet, err := p.Collector.Collect(ctx, req, plan)
 	if err != nil {
 		return PipelineResult{}, fmt.Errorf("pipeline: collect: %w", err)
+	}
+	if err := ValidateCollectedEvidence(plan, packet); err != nil {
+		return PipelineResult{}, fmt.Errorf("pipeline: evidence attestation: %w", err)
 	}
 	elapsedCollect := float64(time.Since(startCollect).Microseconds()) / 1000.0
 
