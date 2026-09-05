@@ -1,8 +1,10 @@
 {
   "risk": "FMEA-007",
-  "status": "closure-candidate",
+  "status": "closed",
   "initial": {"severity": 9, "occurrence": 3, "detection": 7, "rpn": 189},
-  "residual_target": {"severity": 9, "occurrence": 1, "detection": 2, "rpn": 18},
+  "residual": {"severity": 9, "occurrence": 1, "detection": 2, "rpn": 18},
+  "closure_pr": 24,
+  "closure_merge_sha": "e9e1139f93ad47c785841e99bed69a7d427b872e",
   "invariants": [
     "attempt number is never part of semantic side-effect identity",
     "same logical operation and payload returns the original receipt without another effect",
@@ -12,5 +14,24 @@
     "memory admission is operation-idempotent and graph-edge/conflict deduplicated",
     "Axiom durable history exposes a stable idempotency key across retry attempts"
   ],
-  "evidence_pending": ["root ci", "axiom-control crash-window replay", "truthpath regression gate"]
+  "evidence": {
+    "ci_run": 237,
+    "axiom_control_run": 50,
+    "truthpath_run": 42,
+    "source_restart_test": "TestFMEA007SourceCASReplayAfterRestartIsExactlyOnce",
+    "source_cas_test": "TestFMEA007SourceCASRejectsConcurrentRevision",
+    "source_payload_drift_test": "TestFMEA007LogicalOperationRejectsPayloadMutation",
+    "memory_replay_test": "TestFMEA007CommitOnceReusesReceiptWithoutDuplicatingGraph",
+    "legacy_graph_dedupe_test": "TestFMEA007LegacyCommitStillDeduplicatesEdgesAndConflicts",
+    "memory_payload_drift_test": "TestFMEA007LogicalMemoryOperationRejectsPayloadDrift",
+    "axiom_crash_window_test": "TestFMEA007AxiomRetryReusesTargetEffectsAndStableActivityKey"
+  },
+  "reopen": [
+    "attempt number becomes part of semantic effect identity",
+    "source mutation bypasses expected-revision CAS or atomic state+receipt persistence",
+    "same logical retry slot can accept changed payload",
+    "memory replay can multiply semantic edges/conflicts",
+    "external repair activity loses stable idempotency key, timeout or bounded retry",
+    "crash-window replay test no longer proves target receipt reuse"
+  ]
 }
