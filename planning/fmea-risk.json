@@ -17,7 +17,7 @@
   "risks": [
     {"id":"FMEA-001","issue":3,"severity":10,"occurrence":1,"detection":2,"rpn":20,"initial_rpn":320,"priority":"low-residual","status":"closed","barrier":"verification_integrity","closure_pr":19,"closure_merge_sha":"e85cc1977493f481e4c76321bd829d297782325f","evidence":{"ci_run":204,"axiom_control_run":37,"truthpath_run":9,"missing_l3_test":"TestFMEA001TruthPathUnavailableDoesNotDowngradeToL2","weak_l3_test":"TestFMEA001TruthPathRejectsWeakerPacketFromConfiguredL3","invalid_route_test":"TestFMEA001UnknownRouteDoesNotDefaultToL2","upward_escalation_test":"TestFMEA001UpwardL1ToL2EscalationRemainsLegal","pipeline_guard_test":"TestPipelineRejectsWeakCustomCollectorBeforeVerifier","real_l3_dispatcher_test":"TestTruthPathDispatcherRealChromium"}},
     {"id":"FMEA-002","issue":4,"severity":10,"occurrence":1,"detection":2,"rpn":20,"initial_rpn":420,"priority":"low-residual","status":"closed","barrier":"verification_integrity","closure_pr":17,"closure_merge_sha":"468abe87ac76d54b3e887951e30b71e300c450d7","evidence":{"ci_run":191,"axiom_control_run":33,"scope_equivalence_test":"TestPipelineAdapterPreservesCanonicalScopeAndRoute","anti_narrowing_test":"TestPipelineAdapterDoesNotAllowAxiomPlanToNarrowCanonicalRequest","real_browser_test":"TestAxiomFastCDPEndToEndIntegration"}},
-    {"id":"FMEA-003","issue":5,"severity":10,"occurrence":4,"detection":7,"rpn":280,"priority":"critical","status":"open","barrier":"verification_integrity","residual_target_rpn":20},
+    {"id":"FMEA-003","issue":5,"severity":10,"occurrence":1,"detection":2,"rpn":20,"initial_rpn":280,"priority":"low-residual","status":"closed","barrier":"verification_integrity","closure_pr":21,"closure_merge_sha":"384158d3da78edb9fd7fb5b864106d736ad9ab5b","evidence":{"ci_run":217,"axiom_control_run":39,"truthpath_run":22,"stale_revision_test":"TestFMEA003StaleRevisionCannotReleaseEvidence","wrong_revision_test":"TestFMEA003NewerEpochWithWrongRevisionFailsClosed","matching_revision_test":"TestFMEA003MatchingRevisionReleasesWaiter","legacy_signal_test":"TestFMEA003LegacyRevisionlessSignalCannotSatisfyBoundWaiter","packet_provenance_test":"TestFMEA003PacketCarriesExpectedAndObservedRevision","real_hmr_test":"TestAxiomFastCDPEndToEndIntegration"}},
     {"id":"FMEA-004","issue":6,"severity":9,"occurrence":1,"detection":2,"rpn":18,"initial_rpn":360,"priority":"low-residual","status":"closed","barrier":"verification_integrity","closure_pr":18,"closure_merge_sha":"7433e1bd39c431ab0ac69181e2caf0fde9dd1921","evidence":{"ci_run":197,"truthpath_run":2,"real_browser_test":"TestTruthPathRealChromium","missing_worker_test":"TestTruthPathMissingWorkerIsUnavailable","capability_test":"TestTruthPathProbeAdvertisesOnlyLaunchableVersionedBrowsers","version_drift_test":"TestTruthPathProbeRejectsProtocolAndRuntimeVersionDrift","identity_drift_test":"TestTruthPathCaptureRejectsIdentityChangeAfterProbe"}},
     {"id":"FMEA-005","issue":7,"severity":6,"occurrence":10,"detection":4,"rpn":240,"priority":"high","status":"open","barrier":"operational_correctness","residual_target_rpn":12},
     {"id":"FMEA-006","issue":8,"severity":7,"occurrence":9,"detection":3,"rpn":189,"priority":"high","status":"open","barrier":"planning_delivery_trust","residual_target_rpn":28},
@@ -28,13 +28,13 @@
     {"id":"FMEA-011","issue":13,"severity":8,"occurrence":4,"detection":4,"rpn":128,"priority":"high","status":"open","barrier":"planning_delivery_trust","residual_target_rpn":16},
     {"id":"FMEA-012","issue":14,"severity":7,"occurrence":5,"detection":5,"rpn":175,"priority":"high","status":"open","barrier":"operational_correctness","residual_target_rpn":14}
   ],
-  "execution_order": ["FMEA-003", "FMEA-008", "FMEA-005", "FMEA-007", "FMEA-012", "FMEA-010", "FMEA-006", "FMEA-011"],
-  "completed": ["FMEA-002", "FMEA-004", "FMEA-001", "FMEA-009"],
-  "next_risk": "FMEA-003",
+  "execution_order": ["FMEA-008", "FMEA-005", "FMEA-007", "FMEA-012", "FMEA-010", "FMEA-006", "FMEA-011"],
+  "completed": ["FMEA-002", "FMEA-004", "FMEA-001", "FMEA-009", "FMEA-003"],
+  "next_risk": "FMEA-008",
   "metrics": {
-    "open_critical_risks": 2,
+    "open_critical_risks": 1,
     "open_high_risks": 6,
-    "sum_open_rpn": 1613,
-    "sum_closed_residual_rpn": 112
+    "sum_open_rpn": 1333,
+    "sum_closed_residual_rpn": 132
   }
 }
