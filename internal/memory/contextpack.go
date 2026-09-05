@@ -12,9 +12,9 @@ type ContextPackRequest struct {
 	FocusAxes          []string  `json:"focus_axes,omitempty"`
 	FindingCategories  []string  `json:"finding_categories,omitempty"`
 	RuleIDs            []string  `json:"rule_ids,omitempty"`
-	BudgetTokens       int       `json:"budget_tokens"`       // e.g. 2000
-	MaxSimilarCases    int       `json:"max_similar_cases"`   // default <= 5
-	MaxCounterexamples int       `json:"max_counterexamples"` // default <= 3
+	BudgetTokens       int       `json:"budget_tokens"`
+	MaxSimilarCases    int       `json:"max_similar_cases"`
+	MaxCounterexamples int       `json:"max_counterexamples"`
 }
 
 // ContextPack contains the minimal sufficient validated memory projection for model reasoning.
@@ -29,7 +29,14 @@ type ContextPack struct {
 }
 
 // RetrieveContextPack builds a bounded ContextPack obeying token limits and item bounds.
+// Scope is mandatory; omission is never interpreted as admin/all-project access.
 func (s *EpMemoryStore) RetrieveContextPack(ctx context.Context, req ContextPackRequest) (*ContextPack, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if !req.Scope.IsValid() {
+		return nil, ErrScopeRequired
+	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -55,7 +62,6 @@ func (s *EpMemoryStore) RetrieveContextPack(ctx context.Context, req ContextPack
 		ActiveConflicts:  make([]ConflictRecord, 0),
 	}
 
-	// 1. Gather Candidate Rules (prioritize hard constraints and focus axes)
 	ruleMap := make(map[string]bool)
 	for _, rID := range req.RuleIDs {
 		ruleMap[rID] = true
@@ -67,21 +73,15 @@ func (s *EpMemoryStore) RetrieveContextPack(ctx context.Context, req ContextPack
 
 	var rules []DesignRuleAtom
 	for _, stored := range s.atoms {
-		if stored.Status != StatusActive || stored.Atom.Kind != NodeDesignRule {
+		if stored.Status != StatusActive || stored.Atom.Kind != NodeDesignRule || !CanAccess(req.Scope, stored.Atom.Namespace) {
 			continue
 		}
-		if req.Scope.raw != "" && !CanAccess(req.Scope, stored.Atom.Namespace) {
-			continue
-		}
-
 		if rule, ok := stored.Atom.Data.(DesignRuleAtom); ok {
 			if ruleMap[rule.RuleID] || axisMap[rule.Axis] || len(req.FocusAxes) == 0 {
 				rules = append(rules, rule)
 			}
 		}
 	}
-
-	// Sort rules: hard constraints first, then weight
 	sort.Slice(rules, func(i, j int) bool {
 		if rules[i].HardConstraint != rules[j].HardConstraint {
 			return rules[i].HardConstraint
@@ -89,50 +89,32 @@ func (s *EpMemoryStore) RetrieveContextPack(ctx context.Context, req ContextPack
 		return rules[i].Weight > rules[j].Weight
 	})
 
-	// 2. Gather Repair Patterns
 	var patterns []RepairPatternAtom
 	for _, stored := range s.atoms {
-		if stored.Status != StatusActive || stored.Atom.Kind != NodeRepairPattern {
+		if stored.Status != StatusActive || stored.Atom.Kind != NodeRepairPattern || !CanAccess(req.Scope, stored.Atom.Namespace) {
 			continue
 		}
-		if req.Scope.raw != "" && !CanAccess(req.Scope, stored.Atom.Namespace) {
-			continue
-		}
-
 		if pat, ok := stored.Atom.Data.(RepairPatternAtom); ok {
 			patterns = append(patterns, pat)
 		}
 	}
-	// Sort patterns by success rate descending
-	sort.Slice(patterns, func(i, j int) bool {
-		return patterns[i].SuccessRate > patterns[j].SuccessRate
-	})
+	sort.Slice(patterns, func(i, j int) bool { return patterns[i].SuccessRate > patterns[j].SuccessRate })
 
-	// 3. Gather Counterexamples
 	var counterexamples []CounterexampleAtom
 	for _, stored := range s.atoms {
-		if stored.Status != StatusActive || stored.Atom.Kind != NodeCounterexample {
+		if stored.Status != StatusActive || stored.Atom.Kind != NodeCounterexample || !CanAccess(req.Scope, stored.Atom.Namespace) {
 			continue
 		}
-		if req.Scope.raw != "" && !CanAccess(req.Scope, stored.Atom.Namespace) {
-			continue
-		}
-
 		if ce, ok := stored.Atom.Data.(CounterexampleAtom); ok {
 			counterexamples = append(counterexamples, ce)
 		}
 	}
 
-	// 4. Gather Relevant Findings
 	var findings []DesignFindingAtom
 	for _, stored := range s.atoms {
-		if stored.Status != StatusActive || stored.Atom.Kind != NodeDesignFinding {
+		if stored.Status != StatusActive || stored.Atom.Kind != NodeDesignFinding || !CanAccess(req.Scope, stored.Atom.Namespace) {
 			continue
 		}
-		if req.Scope.raw != "" && !CanAccess(req.Scope, stored.Atom.Namespace) {
-			continue
-		}
-
 		if f, ok := stored.Atom.Data.(DesignFindingAtom); ok {
 			if axisMap[f.Axis] || len(req.FocusAxes) == 0 {
 				findings = append(findings, f)
@@ -140,10 +122,7 @@ func (s *EpMemoryStore) RetrieveContextPack(ctx context.Context, req ContextPack
 		}
 	}
 
-	// Greedy budget allocation
 	usedTokens := 0
-
-	// Add rules within budget
 	for _, r := range rules {
 		cost := estimateTokens(r)
 		if usedTokens+cost > budgetTokens {
@@ -152,8 +131,6 @@ func (s *EpMemoryStore) RetrieveContextPack(ctx context.Context, req ContextPack
 		pack.AdmittedRules = append(pack.AdmittedRules, r)
 		usedTokens += cost
 	}
-
-	// Add patterns up to maxSimilar and budget
 	for _, p := range patterns {
 		if len(pack.ProvenPatterns) >= maxSimilar {
 			break
@@ -165,8 +142,6 @@ func (s *EpMemoryStore) RetrieveContextPack(ctx context.Context, req ContextPack
 		pack.ProvenPatterns = append(pack.ProvenPatterns, p)
 		usedTokens += cost
 	}
-
-	// Add counterexamples up to maxCounter and budget
 	for _, ce := range counterexamples {
 		if len(pack.Counterexamples) >= maxCounter {
 			break
@@ -178,8 +153,6 @@ func (s *EpMemoryStore) RetrieveContextPack(ctx context.Context, req ContextPack
 		pack.Counterexamples = append(pack.Counterexamples, ce)
 		usedTokens += cost
 	}
-
-	// Add findings up to maxSimilar and budget
 	for _, f := range findings {
 		if len(pack.RelevantFindings) >= maxSimilar {
 			break
@@ -192,8 +165,10 @@ func (s *EpMemoryStore) RetrieveContextPack(ctx context.Context, req ContextPack
 		usedTokens += cost
 	}
 
-	// Add active conflicts relevant to selected items
 	for _, c := range s.conflicts {
+		if !s.conflictVisibleLocked(req.Scope, c) {
+			continue
+		}
 		cost := estimateTokens(c)
 		if usedTokens+cost > budgetTokens {
 			break
@@ -206,12 +181,21 @@ func (s *EpMemoryStore) RetrieveContextPack(ctx context.Context, req ContextPack
 	return pack, nil
 }
 
+func (s *EpMemoryStore) conflictVisibleLocked(scope Namespace, c ConflictRecord) bool {
+	for _, id := range []string{c.PrimaryAtomID, c.ConflictingAtomID} {
+		stored, ok := s.atoms[id]
+		if !ok || stored.Status != StatusActive || !CanAccess(scope, stored.Atom.Namespace) {
+			return false
+		}
+	}
+	return true
+}
+
 func estimateTokens(v any) int {
 	data, err := json.Marshal(v)
 	if err != nil {
 		return 10
 	}
-	// Approximate 4 chars per token in json payload
 	tokens := len(data) / 4
 	if tokens < 5 {
 		tokens = 5

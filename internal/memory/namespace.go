@@ -1,12 +1,12 @@
 package memory
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
 )
 
-// Standard namespace prefixes
 const (
 	PrefixKnowledgeGlobal  = "knowledge/global-design"
 	PrefixKnowledgeProject = "knowledge/project/"
@@ -18,9 +18,13 @@ const (
 var (
 	ErrInvalidNamespace   = errors.New("invalid memory namespace")
 	ErrUnauthorizedAccess = errors.New("unauthorized cross-namespace access")
+	ErrScopeRequired      = errors.New("memory scope is required")
+	ErrAdmissionRoute     = errors.New("memory admission route is not authorized")
 )
 
-// Namespace represents a validated, structured memory partition.
+// Namespace is a validated structured partition. Its canonical JSON form is the
+// raw namespace string; keeping identity serializable is mandatory for durable
+// provenance and future stores.
 type Namespace struct {
 	raw       string
 	category  string
@@ -28,68 +32,43 @@ type Namespace struct {
 	skillID   string
 }
 
-// NewGlobalDesignNamespace returns the global design knowledge namespace.
 func NewGlobalDesignNamespace() Namespace {
-	return Namespace{
-		raw:      PrefixKnowledgeGlobal,
-		category: "knowledge/global",
-	}
+	return Namespace{raw: PrefixKnowledgeGlobal, category: "knowledge/global"}
 }
 
-// NewProjectKnowledgeNamespace returns a project-scoped knowledge namespace.
 func NewProjectKnowledgeNamespace(projectID string) (Namespace, error) {
-	if strings.TrimSpace(projectID) == "" {
-		return Namespace{}, fmt.Errorf("%w: projectID cannot be empty", ErrInvalidNamespace)
-	}
 	cleanID := strings.TrimSpace(projectID)
-	return Namespace{
-		raw:       PrefixKnowledgeProject + cleanID,
-		category:  "knowledge/project",
-		projectID: cleanID,
-	}, nil
+	if cleanID == "" || strings.ContainsAny(cleanID, "\r\n\x00") {
+		return Namespace{}, fmt.Errorf("%w: invalid projectID", ErrInvalidNamespace)
+	}
+	return Namespace{raw: PrefixKnowledgeProject + cleanID, category: "knowledge/project", projectID: cleanID}, nil
 }
 
-// NewProjectEvidenceNamespace returns a project-scoped evidence namespace.
 func NewProjectEvidenceNamespace(projectID string) (Namespace, error) {
-	if strings.TrimSpace(projectID) == "" {
-		return Namespace{}, fmt.Errorf("%w: projectID cannot be empty", ErrInvalidNamespace)
-	}
 	cleanID := strings.TrimSpace(projectID)
-	return Namespace{
-		raw:       PrefixEvidenceProject + cleanID,
-		category:  "evidence/project",
-		projectID: cleanID,
-	}, nil
+	if cleanID == "" || strings.ContainsAny(cleanID, "\r\n\x00") {
+		return Namespace{}, fmt.Errorf("%w: invalid projectID", ErrInvalidNamespace)
+	}
+	return Namespace{raw: PrefixEvidenceProject + cleanID, category: "evidence/project", projectID: cleanID}, nil
 }
 
-// NewResearchGlobalNamespace returns the global research namespace.
 func NewResearchGlobalNamespace() Namespace {
-	return Namespace{
-		raw:      PrefixResearchGlobal,
-		category: "research/global",
-	}
+	return Namespace{raw: PrefixResearchGlobal, category: "research/global"}
 }
 
-// NewSkillMetaNamespace returns a skill-scoped metadata namespace.
 func NewSkillMetaNamespace(skillID string) (Namespace, error) {
-	if strings.TrimSpace(skillID) == "" {
-		return Namespace{}, fmt.Errorf("%w: skillID cannot be empty", ErrInvalidNamespace)
-	}
 	cleanID := strings.TrimSpace(skillID)
-	return Namespace{
-		raw:      PrefixSkillMeta + cleanID,
-		category: "skillmeta",
-		skillID:  cleanID,
-	}, nil
+	if cleanID == "" || strings.ContainsAny(cleanID, "\r\n\x00") {
+		return Namespace{}, fmt.Errorf("%w: invalid skillID", ErrInvalidNamespace)
+	}
+	return Namespace{raw: PrefixSkillMeta + cleanID, category: "skillmeta", skillID: cleanID}, nil
 }
 
-// ParseNamespace validates and parses a raw namespace string.
 func ParseNamespace(raw string) (Namespace, error) {
 	trimmed := strings.TrimSpace(raw)
 	if trimmed == "" {
 		return Namespace{}, fmt.Errorf("%w: empty namespace", ErrInvalidNamespace)
 	}
-
 	if trimmed == PrefixKnowledgeGlobal {
 		return NewGlobalDesignNamespace(), nil
 	}
@@ -97,70 +76,107 @@ func ParseNamespace(raw string) (Namespace, error) {
 		return NewResearchGlobalNamespace(), nil
 	}
 	if strings.HasPrefix(trimmed, PrefixKnowledgeProject) {
-		projectID := strings.TrimPrefix(trimmed, PrefixKnowledgeProject)
-		return NewProjectKnowledgeNamespace(projectID)
+		return NewProjectKnowledgeNamespace(strings.TrimPrefix(trimmed, PrefixKnowledgeProject))
 	}
 	if strings.HasPrefix(trimmed, PrefixEvidenceProject) {
-		projectID := strings.TrimPrefix(trimmed, PrefixEvidenceProject)
-		return NewProjectEvidenceNamespace(projectID)
+		return NewProjectEvidenceNamespace(strings.TrimPrefix(trimmed, PrefixEvidenceProject))
 	}
 	if strings.HasPrefix(trimmed, PrefixSkillMeta) {
-		skillID := strings.TrimPrefix(trimmed, PrefixSkillMeta)
-		return NewSkillMetaNamespace(skillID)
+		return NewSkillMetaNamespace(strings.TrimPrefix(trimmed, PrefixSkillMeta))
 	}
-
 	return Namespace{}, fmt.Errorf("%w: unknown prefix %q", ErrInvalidNamespace, trimmed)
 }
 
-// String returns the canonical raw namespace identifier.
-func (n Namespace) String() string {
-	return n.raw
+func (n Namespace) String() string          { return n.raw }
+func (n Namespace) Category() string        { return n.category }
+func (n Namespace) ProjectID() string       { return n.projectID }
+func (n Namespace) SkillID() string         { return n.skillID }
+func (n Namespace) IsProjectPrivate() bool  { return n.projectID != "" }
+func (n Namespace) IsGlobal() bool           { return n.raw == PrefixKnowledgeGlobal || n.raw == PrefixResearchGlobal }
+func (n Namespace) IsValid() bool            { _, err := ParseNamespace(n.raw); return err == nil }
+func (n Namespace) Equal(other Namespace) bool { return n.raw != "" && n.raw == other.raw }
+
+func (n Namespace) MarshalJSON() ([]byte, error) {
+	if n.raw == "" {
+		return []byte("null"), nil
+	}
+	if !n.IsValid() {
+		return nil, ErrInvalidNamespace
+	}
+	return json.Marshal(n.raw)
 }
 
-// Category returns the broad namespace category.
-func (n Namespace) Category() string {
-	return n.category
+func (n *Namespace) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		*n = Namespace{}
+		return nil
+	}
+	var raw string
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	parsed, err := ParseNamespace(raw)
+	if err != nil {
+		return err
+	}
+	*n = parsed
+	return nil
 }
 
-// ProjectID returns the project ID if project-scoped.
-func (n Namespace) ProjectID() string {
-	return n.projectID
-}
-
-// SkillID returns the skill ID if skillmeta-scoped.
-func (n Namespace) SkillID() string {
-	return n.skillID
-}
-
-// IsProjectPrivate returns true if this namespace contains project-private data.
-func (n Namespace) IsProjectPrivate() bool {
-	return n.projectID != ""
-}
-
-// IsGlobal returns true if this namespace is globally shared.
-func (n Namespace) IsGlobal() bool {
-	return n.raw == PrefixKnowledgeGlobal || n.raw == PrefixResearchGlobal
-}
-
-// CanAccess checks if a request with a given scope is permitted to access targetNamespace under the firewall.
+// CanAccess is retrieval authorization. A project may read its own private
+// partitions plus global knowledge. A global request never gains project-private
+// visibility. Missing request scope is denied by callers before this function.
 func CanAccess(requestScope Namespace, targetNamespace Namespace) bool {
-	// Global namespaces are accessible by any request.
+	if !requestScope.IsValid() || !targetNamespace.IsValid() {
+		return false
+	}
 	if targetNamespace.IsGlobal() {
 		return true
 	}
-
-	// Project-private namespaces can only be accessed by requests for the exact same project.
 	if targetNamespace.IsProjectPrivate() {
 		return requestScope.projectID != "" && requestScope.projectID == targetNamespace.projectID
 	}
-
-	// Skillmeta can only be accessed by matching skill scope or global.
 	if targetNamespace.skillID != "" {
-		if requestScope.IsGlobal() {
-			return true
-		}
-		return requestScope.skillID == targetNamespace.skillID
+		return requestScope.skillID != "" && requestScope.skillID == targetNamespace.skillID
 	}
+	return false
+}
 
+// CanMutate is stricter than CanAccess. Read visibility of global knowledge does
+// not grant a project authority to retract/supersede it. Mutation stays inside
+// the same global namespace, same project, or same skill partition.
+func CanMutate(requestScope Namespace, targetNamespace Namespace) bool {
+	if !requestScope.IsValid() || !targetNamespace.IsValid() {
+		return false
+	}
+	if targetNamespace.IsGlobal() {
+		return requestScope.IsGlobal() && requestScope.Equal(targetNamespace)
+	}
+	if targetNamespace.IsProjectPrivate() {
+		return requestScope.IsProjectPrivate() && requestScope.ProjectID() == targetNamespace.ProjectID()
+	}
+	if targetNamespace.SkillID() != "" {
+		return requestScope.SkillID() != "" && requestScope.SkillID() == targetNamespace.SkillID()
+	}
+	return false
+}
+
+// CanAdmitOrdinary is the write firewall for non-promotion admission. Ordinary
+// admission may move evidence->knowledge within the same project, but it can
+// never broaden visibility. Global data stays in the exact same global
+// namespace; skill metadata stays with the same skill.
+func CanAdmitOrdinary(source, target Namespace) bool {
+	if !source.IsValid() || !target.IsValid() {
+		return false
+	}
+	if source.IsProjectPrivate() {
+		return target.IsProjectPrivate() && source.ProjectID() == target.ProjectID()
+	}
+	if source.IsGlobal() {
+		return source.Equal(target)
+	}
+	if source.SkillID() != "" {
+		return target.SkillID() == source.SkillID() && source.Equal(target)
+	}
 	return false
 }

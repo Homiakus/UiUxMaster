@@ -41,17 +41,23 @@ const (
 )
 
 // ProvenanceRecord retains full verifiable lineage for any memory atom.
+// SourceNamespace and promotion fields are populated by FMEA-010 controls and
+// survive durable serialization; ordinary admission cannot use them to widen scope.
 type ProvenanceRecord struct {
-	RunID          string        `json:"run_id"`
-	EvidenceDigest string        `json:"evidence_digest"`
-	Renderer       string        `json:"renderer"`       // "wggo", "fastcdp", "playwright"
-	Tier           fidelity.Tier `json:"tier"`           // "L0", "L1", "L2", "L3"
-	Environment    string        `json:"environment"`    // e.g. "chromium-blink-128", "wggo-rgba"
-	RuleVersion    string        `json:"rule_version"`   // e.g. "v1.2.0"
-	CriticVersion  string        `json:"critic_version"` // e.g. "local-semantic-v1"
-	ProjectScope   string        `json:"project_scope"`  // e.g. "project-alpha" or "global"
-	Timestamp      time.Time     `json:"timestamp"`
-	Outcome        string        `json:"outcome"`        // "CONFIRMED", "REPAIRED", "REFUTED", "BENCHMARKED"
+	RunID           string        `json:"run_id"`
+	EvidenceDigest  string        `json:"evidence_digest"`
+	Renderer        string        `json:"renderer"`       // "wggo", "fastcdp", "playwright"
+	Tier            fidelity.Tier `json:"tier"`           // "L0", "L1", "L2", "L3"
+	Environment     string        `json:"environment"`    // e.g. "chromium-blink-128", "wggo-rgba"
+	RuleVersion     string        `json:"rule_version"`   // e.g. "v1.2.0"
+	CriticVersion   string        `json:"critic_version"` // e.g. "local-semantic-v1"
+	ProjectScope    string        `json:"project_scope"`  // e.g. "project-alpha" or "global"
+	SourceNamespace string        `json:"source_namespace,omitempty"`
+	SourceAtomIDs   []string      `json:"source_atom_ids,omitempty"`
+	DecisionDigest  string        `json:"decision_digest,omitempty"`
+	VerifierID      string        `json:"verifier_id,omitempty"`
+	Timestamp       time.Time     `json:"timestamp"`
+	Outcome         string        `json:"outcome"` // "CONFIRMED", "REPAIRED", "REFUTED", "BENCHMARKED"
 }
 
 // MemoryAtom is the canonical node container in the epistemic graph.

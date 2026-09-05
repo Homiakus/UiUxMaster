@@ -9,23 +9,25 @@ import (
 )
 
 var (
-	ErrNonRegressionFailed = errors.New("evolution: candidate regressed on protected axes or score")
-	ErrInvalidCandidate    = errors.New("evolution: invalid candidate version or heuristic")
+	ErrNonRegressionFailed   = errors.New("evolution: candidate regressed on protected axes or score")
+	ErrInvalidCandidate      = errors.New("evolution: invalid candidate version or heuristic")
 	ErrPromotionUnauthorized = errors.New("evolution: promotion authorization gate failed")
 )
 
-// CandidateHeuristic captures an empirical pattern extracted from admitted evidence.
+// CandidateHeuristic captures an empirical pattern extracted from repeated,
+// independently proven, globally safe admitted evidence.
 type CandidateHeuristic struct {
-	ID               string                `json:"id"`
-	SkillID          string                `json:"skill_id"`
-	Category         string                `json:"category"`
-	ProposedRule     memory.DesignRuleAtom `json:"proposed_rule"`
-	SourceFindingIDs []string              `json:"source_finding_ids"`
-	Confidence       float64               `json:"confidence"`
-	CreatedAt        time.Time             `json:"created_at"`
+	ID                    string                `json:"id"`
+	SkillID               string                `json:"skill_id"`
+	Category              string                `json:"category"`
+	ProposedRule          memory.DesignRuleAtom `json:"proposed_rule"`
+	SourceFindingIDs      []string              `json:"source_finding_ids"`
+	SourceEvidenceDigests []string              `json:"source_evidence_digests"`
+	SourceRunIDs          []string              `json:"source_run_ids"`
+	Confidence            float64               `json:"confidence"`
+	CreatedAt             time.Time             `json:"created_at"`
 }
 
-// SkillVersion is an immutable, versioned bundle of rules and patterns for a skill.
 type SkillVersion struct {
 	VersionID            string                     `json:"version_id"`
 	SkillID              string                     `json:"skill_id"`
@@ -37,7 +39,6 @@ type SkillVersion struct {
 	PromotedAt           time.Time                  `json:"promoted_at,omitempty"`
 }
 
-// ReplayCase represents a deterministic historical benchmark fixture.
 type ReplayCase struct {
 	CaseID                 string              `json:"case_id"`
 	Description            string              `json:"description"`
@@ -46,7 +47,6 @@ type ReplayCase struct {
 	BaselineScore          float64             `json:"baseline_score"`
 }
 
-// EvaluationReport summarizes the replay evaluation outcomes for a version.
 type EvaluationReport struct {
 	VersionID      string   `json:"version_id"`
 	TotalCases     int      `json:"total_cases"`
@@ -57,4 +57,17 @@ type EvaluationReport struct {
 	HardViolations int      `json:"hard_violations"`
 	PassedGate     bool     `json:"passed_gate"`
 	Rationale      string   `json:"rationale"`
+}
+
+// PromotionAuthorization binds the exact active/candidate/corpus tuple to an
+// independent verifier. PromoteCandidate accepts no implicit prior shadow state.
+type PromotionAuthorization struct {
+	ActiveVersionID    string    `json:"active_version_id"`
+	CandidateVersionID string    `json:"candidate_version_id"`
+	CorpusDigest       string    `json:"corpus_digest"`
+	VerifierID         string    `json:"verifier_id"`
+	ReplayPassed       bool      `json:"replay_passed"`
+	ShadowPassed       bool      `json:"shadow_passed"`
+	Rationale          string    `json:"rationale"`
+	IssuedAt           time.Time `json:"issued_at"`
 }
