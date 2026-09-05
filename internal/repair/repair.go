@@ -222,12 +222,17 @@ func (e *HostRepairEngine) RunRepairLoop(ctx context.Context, req RepairLoopRequ
 
 	memoryAdmitted := false
 	admittedAtomCount := 0
-	if passed && e.Store != nil && e.Admission != nil && len(appliedPatches) > 0 {
-		var ns memory.Namespace
-		if req.ProjectID != "" { ns, _ = memory.NewProjectKnowledgeNamespace(req.ProjectID) } else { ns = memory.NewGlobalDesignNamespace() }
+	// Long-term repair memory is project-private by construction. Without an
+	// explicit ProjectID the repair may still succeed and source state may commit,
+	// but no memory admission is attempted; global knowledge requires Promote.
+	if passed && e.Store != nil && e.Admission != nil && len(appliedPatches) > 0 && strings.TrimSpace(req.ProjectID) != "" {
+		ns, nsErr := memory.NewProjectKnowledgeNamespace(req.ProjectID)
+		if nsErr != nil { return RepairLoopResult{}, fmt.Errorf("repair: project memory namespace: %w", nsErr) }
+		sourceNS, sourceErr := memory.NewProjectEvidenceNamespace(req.ProjectID)
+		if sourceErr != nil { return RepairLoopResult{}, fmt.Errorf("repair: project evidence namespace: %w", sourceErr) }
 		prov := memory.ProvenanceRecord{
 			RunID: req.RunID, EvidenceDigest: fmt.Sprintf("final-gate:%s:%s", finalGate.VerifierID, req.RunID),
-			Renderer: finalGate.EvidenceTier, Timestamp: time.Now(),
+			Renderer: finalGate.EvidenceTier, ProjectScope: req.ProjectID, SourceNamespace: sourceNS.String(), Timestamp: time.Now(),
 		}
 		for i, p := range appliedPatches {
 			hypothesis := &design.RepairHypothesis{
@@ -235,7 +240,7 @@ func (e *HostRepairEngine) RunRepairLoop(ctx context.Context, req RepairLoopRequ
 				ExpectedOutcome: "Independent final gate + held-out suite passed without protected-axis regression", Confidence: 1.0,
 			}
 			bundle, admitErr := e.Admission.AdmitRepairOutcome(ctx, hypothesis, true, memory.AdmissionRequest{
-				TargetNamespace: ns, Provenance: prov, Confidence: 1.0,
+				SourceNamespace: sourceNS, TargetNamespace: ns, Provenance: prov, Confidence: 1.0,
 				Tags: []string{"repair_lesson", "independent_final_gate", p.TargetType},
 			})
 			if admitErr != nil { return RepairLoopResult{}, fmt.Errorf("repair: map memory admission for patch %s: %w", p.ID, admitErr) }
