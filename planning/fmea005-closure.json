@@ -1,0 +1,15 @@
+{
+  "risk": "FMEA-005",
+  "status": "closure-candidate",
+  "initial": {"severity": 6, "occurrence": 10, "detection": 4, "rpn": 240},
+  "residual_target": {"severity": 6, "occurrence": 1, "detection": 2, "rpn": 12},
+  "invariants": [
+    "impact resolution and invalidation are distinct canonical stages",
+    "delay injected into impact does not inflate invalidation telemetry",
+    "delay injected into invalidation does not inflate impact telemetry",
+    "stage timers are non-overlapping and TotalMS is not double-counted",
+    "packet latency mirrors canonical independent stage measurements",
+    "benchmark artifacts persist independent impact and invalidation distributions"
+  ],
+  "evidence_pending": ["root ci", "scope stage benchmark artifact"]
+}
