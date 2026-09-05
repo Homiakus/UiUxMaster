@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"time"
 
 	"github.com/Homiakus/axiom/adgo"
 )
@@ -55,7 +56,14 @@ func polishDefinition() adgo.Definition {
 		ID: polishPlanID, Version: polishPlanVersion, InitialData: []string{dataPolishRequest},
 		Nodes: []adgo.Node{
 			{ID: "inspect_baseline", Kind: adgo.NodeActivity, Activity: activityPolishInspect, Requires: []string{dataPolishRequest}, Produces: []string{dataPolishBaseline}, Next: []adgo.Transition{{To: "iterate_repair"}}},
-			{ID: "iterate_repair", Kind: adgo.NodeActivity, Activity: activityPolishIterate, DependsOn: []string{"inspect_baseline"}, Requires: []string{dataPolishRequest, dataPolishBaseline}, Produces: []string{dataPolishIterations}, Next: []adgo.Transition{{To: "conclude_polish"}}},
+			{
+				ID: "iterate_repair", Kind: adgo.NodeActivity, Activity: activityPolishIterate,
+				DependsOn: []string{"inspect_baseline"}, Requires: []string{dataPolishRequest, dataPolishBaseline}, Produces: []string{dataPolishIterations},
+				Next: []adgo.Transition{{To: "conclude_polish"}},
+				ExternalEffect: true,
+				IdempotencyKey: "{execution}:{node}",
+				Retry: adgo.RetryPolicy{MaxAttempts: 3, BaseDelay: time.Millisecond, MaxDelay: 10 * time.Millisecond, MaxRetryDuration: time.Second},
+			},
 			{ID: "conclude_polish", Kind: adgo.NodeActivity, Activity: activityPolishConclude, DependsOn: []string{"iterate_repair"}, Requires: []string{dataPolishRequest, dataPolishIterations}, Produces: []string{dataPolishResult}},
 		},
 	}
