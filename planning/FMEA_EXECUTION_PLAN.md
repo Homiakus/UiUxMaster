@@ -63,21 +63,42 @@ Reopen FMEA-003 if epoch-only state can satisfy a revision-bound request, packet
 
 Reopen FMEA-008 if an L1/L2 PASS path bypasses `PassAuthority`, a material runtime/environment dimension is omitted from the key, stale/expired/weak records remain legal, one evidence class can substitute for another, or the real runtime-drift proof fails.
 
+## Operational correctness closures
+
+### FMEA-005 — CLOSED
+
+Initial `6/10/4 RPN=240` -> residual `6/1/2 RPN=12`.  
+Issue #7, PR #23, merge `b574f86870c5e604998347f941fd961e3a8fc657`.
+
+Closure:
+
+- canonical scope planning is split into `ResolveImpact` and `InvalidateImpact`;
+- `PlanScope` remains only a compatibility wrapper and canonical Pipeline measures the two stages separately;
+- controlled 35 ms impact-only injection raises only `ImpactMS`;
+- controlled 35 ms invalidation-only injection raises only `InvalidationMS`;
+- telemetry includes distinct impact counters and final ValidationScope counters;
+- `MeasuredStageMS + UnattributedMS` accounts for `TotalMS` without assigning orchestration overhead twice;
+- packet latency mirrors the canonical independent stage values;
+- `scope_stages.json` persists independent impact/invalidation distributions in CI artifact `9965578584`;
+- 200-iteration evidence: impact mean `2.979 µs`, invalidation mean `1.213 µs`, impact nodes `5`, final scope size `4`;
+- `ci` #230, `axiom-control` #47 and `truthpath` #35 PASS.
+
+Reopen FMEA-005 if one measured interval is copied into both stage fields, injected delay leaks materially across stage metrics, named stages can double-count total latency, packet/pipeline telemetry diverge, or benchmark artifacts stop preserving separate distributions.
+
 ## Operational correctness tranche — CURRENT
 
 | Order | Risk | Issue | RPN | Primary closure outcome |
 |---:|---|---:|---:|---|
-| 1 | **FMEA-005** — false impact/invalidation telemetry split | #7 | 240 | independently measured stages + accounting/benchmark proof |
-| 2 | FMEA-007 — duplicate durable side effects | #9 | 189 | idempotency keys/CAS + crash-boundary replay proof |
-| 3 | FMEA-012 — baseline environment mismatch | #14 | 175 | canonical environment identity + incompatible-baseline rejection |
-| 4 | FMEA-010 — memory leakage/poisoning | #12 | 160 | adversarial multi-project isolation + promotion/retraction/rollback proof |
+| 1 | **FMEA-007** — duplicate durable side effects | #9 | 189 | idempotency keys/CAS + crash-boundary replay proof |
+| 2 | FMEA-012 — baseline environment mismatch | #14 | 175 | canonical environment identity + incompatible-baseline rejection |
+| 3 | FMEA-010 — memory leakage/poisoning | #12 | 160 | adversarial multi-project isolation + promotion/retraction/rollback proof |
 
 ## Planning and delivery trust
 
 | Order | Risk | Issue | RPN | Primary closure outcome |
 |---:|---|---:|---:|---|
-| 5 | FMEA-006 — planning/documentation drift | #8 | 189 | reconcile claims to the four maturity states with executable evidence |
-| 6 | FMEA-011 — ungated `main` | #13 | 128 | required CI/review/risk gates and audited exceptions |
+| 4 | FMEA-006 — planning/documentation drift | #8 | 189 | reconcile claims to the four maturity states with executable evidence |
+| 5 | FMEA-011 — ungated `main` | #13 | 128 | required CI/review/risk gates and audited exceptions |
 
 ## Dependency graph
 
@@ -102,7 +123,7 @@ FMEA-002 CLOSED   FMEA-004 CLOSED
               |
        +------+-------+
        v              v
- FMEA-005 CURRENT   FMEA-007
+ FMEA-005 CLOSED   FMEA-007 CURRENT
  telemetry          idempotency
        |              |
        +------+-------+
@@ -138,8 +159,8 @@ The graph is the default risk/value execution order; independent work may procee
 
 ### Barrier B — operational correctness
 
-- [ ] #7 / FMEA-005 — split impact/invalidation stage measurement and accounting tests. **CURRENT.**
-- [ ] #9 / FMEA-007 — idempotency keys/CAS + crash-boundary fault tests.
+- [x] #7 / FMEA-005 — independent impact/invalidation telemetry. **CLOSED: residual RPN 12; PR #23; CI #230.**
+- [ ] #9 / FMEA-007 — idempotency keys/CAS + crash-boundary fault tests. **CURRENT.**
 - [ ] #14 / FMEA-012 — canonical baseline environment identity and incompatible-baseline rejection.
 - [ ] #12 / FMEA-010 — multi-project isolation and poisoning adversarial suite.
 
@@ -167,9 +188,9 @@ A mitigation is DONE only after implementation is merged, named independent evid
 
 ```text
 open_critical_risks = 0
-open_high_risks = 6
-sum_open_rpn = 1081
-sum_closed_residual_rpn = 150
+open_high_risks = 5
+sum_open_rpn = 841
+sum_closed_residual_rpn = 162
 ```
 
 Also track false-PASS incidents, collector downgrade attempts, scope-equivalence failures, stale-revision rejections, TruthPath unavailable events, calibration invalidations, held-out repair regression escape rate, cross-project memory leakage, incompatible-baseline rejections and duplicate durable side effects.
