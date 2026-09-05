@@ -42,7 +42,9 @@ type AdmissionRequest struct {
 }
 
 // AdmissionBundle is the store-level authorization envelope. SourceNamespace is
-// mandatory even for direct Commit callers so mapper validation cannot be bypassed.
+// mandatory for global writes. For project-private mapper calls, a missing source
+// may be safely reconstructed as evidence/project/<same-project>; that fallback
+// can never broaden visibility and exists only for pre-FMEA-010 callers.
 type AdmissionBundle struct {
 	SourceNamespace Namespace    `json:"source_namespace"`
 	Atoms           []MemoryAtom `json:"atoms"`
@@ -52,31 +54,66 @@ type AdmissionBundle struct {
 type AdmissionMapper struct{ config AdmissionConfig }
 
 func NewAdmissionMapper(cfg *AdmissionConfig) *AdmissionMapper {
-	if cfg == nil { def := DefaultAdmissionConfig(); cfg = &def }
+	if cfg == nil {
+		def := DefaultAdmissionConfig()
+		cfg = &def
+	}
 	return &AdmissionMapper{config: *cfg}
 }
 
 func (m *AdmissionMapper) ValidateProvenance(p ProvenanceRecord) error {
-	if strings.TrimSpace(p.RunID) == "" { return fmt.Errorf("%w: missing run_id", ErrInvalidProvenance) }
-	if strings.TrimSpace(p.EvidenceDigest) == "" { return fmt.Errorf("%w: missing evidence_digest", ErrInvalidProvenance) }
-	if strings.TrimSpace(p.Renderer) == "" { return fmt.Errorf("%w: missing renderer", ErrInvalidProvenance) }
-	if p.Timestamp.IsZero() { return fmt.Errorf("%w: zero timestamp", ErrStaleTimestamp) }
+	if strings.TrimSpace(p.RunID) == "" {
+		return fmt.Errorf("%w: missing run_id", ErrInvalidProvenance)
+	}
+	if strings.TrimSpace(p.EvidenceDigest) == "" {
+		return fmt.Errorf("%w: missing evidence_digest", ErrInvalidProvenance)
+	}
+	if strings.TrimSpace(p.Renderer) == "" {
+		return fmt.Errorf("%w: missing renderer", ErrInvalidProvenance)
+	}
+	if p.Timestamp.IsZero() {
+		return fmt.Errorf("%w: zero timestamp", ErrStaleTimestamp)
+	}
 	now := time.Now()
-	if p.Timestamp.After(now.Add(m.config.AllowFutureSkew)) { return fmt.Errorf("%w: timestamp is in the future", ErrStaleTimestamp) }
-	if m.config.MaxTimestampAge > 0 && now.Sub(p.Timestamp) > m.config.MaxTimestampAge { return fmt.Errorf("%w: timestamp exceeds max age", ErrStaleTimestamp) }
+	if p.Timestamp.After(now.Add(m.config.AllowFutureSkew)) {
+		return fmt.Errorf("%w: timestamp is in the future", ErrStaleTimestamp)
+	}
+	if m.config.MaxTimestampAge > 0 && now.Sub(p.Timestamp) > m.config.MaxTimestampAge {
+		return fmt.Errorf("%w: timestamp exceeds max age", ErrStaleTimestamp)
+	}
 	return nil
 }
 
 // ValidateAdmissionRequest is the canonical ordinary-write authorization gate.
+// Missing source scope is only recoverable for an already project-private target:
+// the source becomes the evidence partition of that exact project. Global target
+// scope is never inferred because that would turn omission into promotion.
 func (m *AdmissionMapper) ValidateAdmissionRequest(req AdmissionRequest) (AdmissionRequest, error) {
-	if !req.SourceNamespace.IsValid() { return req, fmt.Errorf("%w: source namespace is required", ErrScopeRequired) }
-	if !req.TargetNamespace.IsValid() { return req, fmt.Errorf("%w: target namespace is required", ErrScopeRequired) }
+	if !req.TargetNamespace.IsValid() {
+		return req, fmt.Errorf("%w: target namespace is required", ErrScopeRequired)
+	}
+	if !req.SourceNamespace.IsValid() {
+		if !req.TargetNamespace.IsProjectPrivate() {
+			return req, fmt.Errorf("%w: source namespace is required for non-project target %s", ErrScopeRequired, req.TargetNamespace)
+		}
+		inferred, err := NewProjectEvidenceNamespace(req.TargetNamespace.ProjectID())
+		if err != nil {
+			return req, err
+		}
+		req.SourceNamespace = inferred
+	}
 	if !CanAdmitOrdinary(req.SourceNamespace, req.TargetNamespace) {
 		return req, fmt.Errorf("%w: %s -> %s requires explicit promotion/authorization", ErrAdmissionRoute, req.SourceNamespace, req.TargetNamespace)
 	}
-	if err := m.ValidateProvenance(req.Provenance); err != nil { return req, err }
+	if err := m.ValidateProvenance(req.Provenance); err != nil {
+		return req, err
+	}
 
+	if existing := strings.TrimSpace(req.Provenance.SourceNamespace); existing != "" && existing != req.SourceNamespace.String() {
+		return req, fmt.Errorf("%w: provenance source %q disagrees with admission source %q", ErrAdmissionRoute, existing, req.SourceNamespace.String())
+	}
 	req.Provenance.SourceNamespace = req.SourceNamespace.String()
+
 	if req.SourceNamespace.IsProjectPrivate() {
 		projectID := req.SourceNamespace.ProjectID()
 		if strings.TrimSpace(req.Provenance.ProjectScope) == "" {
@@ -86,90 +123,146 @@ func (m *AdmissionMapper) ValidateAdmissionRequest(req AdmissionRequest) (Admiss
 			return req, fmt.Errorf("%w: project provenance %q cannot write %s", ErrAdmissionRoute, req.Provenance.ProjectScope, req.TargetNamespace)
 		}
 	} else if req.SourceNamespace.IsGlobal() {
-		if scope := strings.TrimSpace(req.Provenance.ProjectScope); scope != "" && scope != "global" {
+		scope := strings.TrimSpace(req.Provenance.ProjectScope)
+		if scope != "" && scope != "global" {
 			return req, fmt.Errorf("%w: global admission carries project scope %q", ErrAdmissionRoute, scope)
+		}
+		if scope == "" {
+			req.Provenance.ProjectScope = "global"
 		}
 	}
 	return req, nil
 }
 
 func (m *AdmissionMapper) AdmitPacket(ctx context.Context, packet *evidence.Packet, req AdmissionRequest) (*AdmissionBundle, error) {
-	if err := ctx.Err(); err != nil { return nil, err }
-	if packet == nil { return nil, fmt.Errorf("%w: packet is nil", ErrInvalidAtomData) }
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if packet == nil {
+		return nil, fmt.Errorf("%w: packet is nil", ErrInvalidAtomData)
+	}
 	var err error
 	req, err = m.ValidateAdmissionRequest(req)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	ns, prov, now := req.TargetNamespace, req.Provenance, time.Now()
 
 	envID := fmt.Sprintf("env_%s_%s", prov.Renderer, hashString(prov.Environment))
-	envAtom := MemoryAtom{ID: envID, Kind: NodeRenderEnvironment, Namespace: ns, Provenance: prov, Confidence: 1,
+	envAtom := MemoryAtom{
+		ID: envID, Kind: NodeRenderEnvironment, Namespace: ns, Provenance: prov, Confidence: 1,
 		Data: RenderEnvironmentAtom{Renderer: prov.Renderer, BrowserFamily: prov.Renderer, ViewportW: 1280, ViewportH: 800, DeviceScale: 1, Theme: "default"},
-		Tags: append(req.Tags, "environment", prov.Renderer), CreatedAt: now, UpdatedAt: now}
+		Tags: append(req.Tags, "environment", prov.Renderer), CreatedAt: now, UpdatedAt: now,
+	}
 	artID := fmt.Sprintf("artifact_%s", prov.EvidenceDigest)
-	artAtom := MemoryAtom{ID: artID, Kind: NodeEvidenceArtifact, Namespace: ns, Provenance: prov, Confidence: 1,
+	artAtom := MemoryAtom{
+		ID: artID, Kind: NodeEvidenceArtifact, Namespace: ns, Provenance: prov, Confidence: 1,
 		Data: EvidenceArtifactAtom{Kind: "evidence_packet", Digest: prov.EvidenceDigest, SizeBytes: int64(len(packet.RunID))},
-		Tags: append(req.Tags, "artifact", prov.Renderer), CreatedAt: now, UpdatedAt: now}
+		Tags: append(req.Tags, "artifact", prov.Renderer), CreatedAt: now, UpdatedAt: now,
+	}
 	edge := MemoryEdge{FromID: artID, ToID: envID, Relation: RelObservedOn, Weight: 1, Provenance: prov, CreatedAt: now}
 	return &AdmissionBundle{SourceNamespace: req.SourceNamespace, Atoms: []MemoryAtom{envAtom, artAtom}, Edges: []MemoryEdge{edge}}, nil
 }
 
 func (m *AdmissionMapper) AdmitCritiquePass(ctx context.Context, pass *design.CritiquePass, req AdmissionRequest) (*AdmissionBundle, error) {
-	if err := ctx.Err(); err != nil { return nil, err }
-	if pass == nil { return nil, fmt.Errorf("%w: critique pass is nil", ErrInvalidAtomData) }
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if pass == nil {
+		return nil, fmt.Errorf("%w: critique pass is nil", ErrInvalidAtomData)
+	}
 	var err error
 	req, err = m.ValidateAdmissionRequest(req)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	ns, prov, now := req.TargetNamespace, req.Provenance, time.Now()
 	atoms := make([]MemoryAtom, 0, 1+len(pass.Findings)+len(pass.Hypotheses))
 	edges := make([]MemoryEdge, 0)
 
 	evalID := fmt.Sprintf("eval_%s_%s", prov.RunID, pass.ID)
-	atoms = append(atoms, MemoryAtom{ID: evalID, Kind: NodeEvaluationResult, Namespace: ns, Provenance: prov, Confidence: 1,
+	atoms = append(atoms, MemoryAtom{
+		ID: evalID, Kind: NodeEvaluationResult, Namespace: ns, Provenance: prov, Confidence: 1,
 		Data: EvaluationResultAtom{RunID: prov.RunID, Score: pass.GroundedScore, Passed: pass.HardViolations == 0, HardViolations: pass.HardViolations, DurationMS: pass.Duration.Milliseconds()},
-		Tags: append(req.Tags, "critique_pass", string(pass.Level)), CreatedAt: now, UpdatedAt: now})
+		Tags: append(req.Tags, "critique_pass", string(pass.Level)), CreatedAt: now, UpdatedAt: now,
+	})
 
 	for _, f := range pass.Findings {
-		conf := f.Confidence; if conf == 0 { conf = req.Confidence }; if conf < m.config.MinConfidence { continue }
+		conf := f.Confidence
+		if conf == 0 {
+			conf = req.Confidence
+		}
+		if conf < m.config.MinConfidence {
+			continue
+		}
 		findingID := fmt.Sprintf("finding_%s_%s", prov.RunID, f.ID)
-		atoms = append(atoms, MemoryAtom{ID: findingID, Kind: NodeDesignFinding, Namespace: ns, Provenance: prov, Confidence: conf,
+		atoms = append(atoms, MemoryAtom{
+			ID: findingID, Kind: NodeDesignFinding, Namespace: ns, Provenance: prov, Confidence: conf,
 			Data: DesignFindingAtom{FindingID: f.ID, Axis: f.Axis, Category: f.Category, RuleID: f.RuleID, Title: f.Title, Description: f.Description, Severity: f.Severity, HardConstraint: f.HardConstraint, RegionID: f.RegionID, ElementIDs: f.ElementIDs, Suggestion: f.Suggestion},
-			Tags: append(req.Tags, "finding", f.Axis, f.Category), CreatedAt: now, UpdatedAt: now})
+			Tags: append(req.Tags, "finding", f.Axis, f.Category), CreatedAt: now, UpdatedAt: now,
+		})
 		edges = append(edges, MemoryEdge{FromID: findingID, ToID: evalID, Relation: RelDerivedFrom, Weight: conf, Provenance: prov, CreatedAt: now})
-		if f.RuleID != "" { edges = append(edges, MemoryEdge{FromID: findingID, ToID: fmt.Sprintf("rule_%s", f.RuleID), Relation: RelObservedOn, Weight: 1, Provenance: prov, CreatedAt: now}) }
+		if f.RuleID != "" {
+			edges = append(edges, MemoryEdge{FromID: findingID, ToID: fmt.Sprintf("rule_%s", f.RuleID), Relation: RelObservedOn, Weight: 1, Provenance: prov, CreatedAt: now})
+		}
 	}
 	for _, h := range pass.Hypotheses {
-		if h.Confidence < m.config.MinConfidence { continue }
+		if h.Confidence < m.config.MinConfidence {
+			continue
+		}
 		patternID := fmt.Sprintf("pattern_%s_%s", prov.RunID, h.ID)
-		atoms = append(atoms, MemoryAtom{ID: patternID, Kind: NodeRepairPattern, Namespace: ns, Provenance: prov, Confidence: h.Confidence,
+		atoms = append(atoms, MemoryAtom{
+			ID: patternID, Kind: NodeRepairPattern, Namespace: ns, Provenance: prov, Confidence: h.Confidence,
 			Data: RepairPatternAtom{PatternID: h.ID, Strategy: h.Strategy, TargetFiles: h.TargetFiles, PatchSnippet: h.ProposedChanges, ExpectedOutcome: h.ExpectedOutcome},
-			Tags: append(req.Tags, "repair_pattern", h.Strategy), CreatedAt: now, UpdatedAt: now})
-		for _, fID := range h.FindingIDs { edges = append(edges, MemoryEdge{FromID: patternID, ToID: fmt.Sprintf("finding_%s_%s", prov.RunID, fID), Relation: RelRepairedBy, Weight: h.Confidence, Provenance: prov, CreatedAt: now}) }
+			Tags: append(req.Tags, "repair_pattern", h.Strategy), CreatedAt: now, UpdatedAt: now,
+		})
+		for _, fID := range h.FindingIDs {
+			edges = append(edges, MemoryEdge{FromID: patternID, ToID: fmt.Sprintf("finding_%s_%s", prov.RunID, fID), Relation: RelRepairedBy, Weight: h.Confidence, Provenance: prov, CreatedAt: now})
+		}
 	}
 	return &AdmissionBundle{SourceNamespace: req.SourceNamespace, Atoms: atoms, Edges: edges}, nil
 }
 
 func (m *AdmissionMapper) AdmitRepairOutcome(ctx context.Context, hypothesis *design.RepairHypothesis, succeeded bool, req AdmissionRequest) (*AdmissionBundle, error) {
-	if err := ctx.Err(); err != nil { return nil, err }
-	if hypothesis == nil { return nil, fmt.Errorf("%w: hypothesis is nil", ErrInvalidAtomData) }
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if hypothesis == nil {
+		return nil, fmt.Errorf("%w: hypothesis is nil", ErrInvalidAtomData)
+	}
 	var err error
 	req, err = m.ValidateAdmissionRequest(req)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	ns, prov, now := req.TargetNamespace, req.Provenance, time.Now()
 	patternID := fmt.Sprintf("pattern_%s", hashString(hypothesis.ProposedChanges))
 	succ, fail, rate, tag := 0, 0, 0.0, "failed"
-	if succeeded { succ, rate, tag = 1, 1, "success" } else { fail = 1 }
-	atom := MemoryAtom{ID: patternID, Kind: NodeRepairPattern, Namespace: ns, Provenance: prov, Confidence: hypothesis.Confidence,
+	if succeeded {
+		succ, rate, tag = 1, 1, "success"
+	} else {
+		fail = 1
+	}
+	atom := MemoryAtom{
+		ID: patternID, Kind: NodeRepairPattern, Namespace: ns, Provenance: prov, Confidence: hypothesis.Confidence,
 		Data: RepairPatternAtom{PatternID: hypothesis.ID, Strategy: hypothesis.Strategy, TargetFiles: hypothesis.TargetFiles, PatchSnippet: hypothesis.ProposedChanges, ExpectedOutcome: hypothesis.ExpectedOutcome, SuccessCount: succ, FailureCount: fail, SuccessRate: rate},
-		Tags: append(req.Tags, "repair_pattern", hypothesis.Strategy, tag), CreatedAt: now, UpdatedAt: now}
-	atoms := []MemoryAtom{atom}; edges := []MemoryEdge{}
+		Tags: append(req.Tags, "repair_pattern", hypothesis.Strategy, tag), CreatedAt: now, UpdatedAt: now,
+	}
+	atoms := []MemoryAtom{atom}
+	edges := []MemoryEdge{}
 	if !succeeded {
 		ceID := fmt.Sprintf("ce_%s", patternID)
-		atoms = append(atoms, MemoryAtom{ID: ceID, Kind: NodeCounterexample, Namespace: ns, Provenance: prov, Confidence: 1,
+		atoms = append(atoms, MemoryAtom{
+			ID: ceID, Kind: NodeCounterexample, Namespace: ns, Provenance: prov, Confidence: 1,
 			Data: CounterexampleAtom{TargetEntityID: patternID, Reason: "Repair failed re-verification or caused regression", RefutingDigest: prov.EvidenceDigest, Observation: hypothesis.ExpectedOutcome},
-			Tags: append(req.Tags, "counterexample", "refutation"), CreatedAt: now, UpdatedAt: now})
+			Tags: append(req.Tags, "counterexample", "refutation"), CreatedAt: now, UpdatedAt: now,
+		})
 		edges = append(edges, MemoryEdge{FromID: ceID, ToID: patternID, Relation: RelRefutes, Weight: 1, Provenance: prov, CreatedAt: now})
 	}
 	return &AdmissionBundle{SourceNamespace: req.SourceNamespace, Atoms: atoms, Edges: edges}, nil
 }
 
-func hashString(s string) string { h := sha256.Sum256([]byte(s)); return hex.EncodeToString(h[:8]) }
+func hashString(s string) string {
+	h := sha256.Sum256([]byte(s))
+	return hex.EncodeToString(h[:8])
+}
