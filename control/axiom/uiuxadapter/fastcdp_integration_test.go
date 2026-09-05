@@ -123,6 +123,7 @@ func TestAxiomFastCDPEndToEndIntegration(t *testing.T) {
 	for _, class := range []fidelity.EvidenceClass{
 		fidelity.EvidenceClassStaticLayout,
 		fidelity.EvidenceClassTypography,
+		fidelity.EvidenceClassInteractive,
 		fidelity.EvidenceClassPixelRegression,
 	} {
 		if err := registry.Put(fidelity.CalibrationRecord{
