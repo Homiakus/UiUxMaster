@@ -61,6 +61,7 @@ func polishDefinition() adgo.Definition {
 				DependsOn: []string{"inspect_baseline"}, Requires: []string{dataPolishRequest, dataPolishBaseline}, Produces: []string{dataPolishIterations},
 				Next: []adgo.Transition{{To: "conclude_polish"}},
 				ExternalEffect: true,
+				Timeout: 2 * time.Minute,
 				IdempotencyKey: "{execution}:{node}",
 				Retry: adgo.RetryPolicy{MaxAttempts: 3, BaseDelay: time.Millisecond, MaxDelay: 10 * time.Millisecond, MaxRetryDuration: time.Second},
 			},
