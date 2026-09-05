@@ -1,0 +1,51 @@
+name: truthpath
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  playwright-truthpath:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: '1.26.x'
+          cache: true
+          cache-dependency-path: go.sum
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24.x'
+          cache: npm
+          cache-dependency-path: internal/runtime/playwright/worker/package.json
+
+      - name: Verify worker syntax
+        run: node --check internal/runtime/playwright/worker/worker.cjs
+
+      - name: Install pinned Playwright runtime
+        working-directory: internal/runtime/playwright/worker
+        run: |
+          npm install --ignore-scripts --no-audit --no-fund
+          node -e "const v=require('./node_modules/playwright/package.json').version;if(v!=='1.62.1'){console.error('unexpected Playwright '+v);process.exit(1)}"
+
+      - name: Install Playwright Chromium
+        working-directory: internal/runtime/playwright/worker
+        run: npx playwright install --with-deps chromium
+
+      - name: Unit tests
+        run: go test ./internal/runtime/playwright -count=1
+
+      - name: Real TruthPath Chromium probe and capture
+        env:
+          UIUX_TRUTHPATH_INTEGRATION: '1'
+        run: go test ./internal/runtime/playwright -run '^TestTruthPathRealChromium$' -count=1 -v

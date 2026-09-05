@@ -1,0 +1,10 @@
+{
+  "name": "uiuxmaster-truthpath-worker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Pinned Playwright runtime for UiUxMaster TruthPath L3 evidence",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "playwright": "1.62.1"
+  }
+}

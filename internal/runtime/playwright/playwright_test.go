@@ -12,17 +12,26 @@ import (
 )
 
 func TestPlaywrightAdapter_Capabilities(t *testing.T) {
-	adapter := playwright.New(playwright.Config{})
+	runner := &playwright.MockRunner{}
+	adapter := playwright.New(playwright.Config{Runner: runner})
 	caps := adapter.Capabilities()
 
 	if caps.Name != "playwright-truthpath" {
 		t.Errorf("expected name 'playwright-truthpath', got %q", caps.Name)
 	}
-	if !caps.CleanState {
-		t.Errorf("expected clean state to be true")
+	if caps.Ready || caps.CleanState || len(caps.Browsers) != 0 {
+		t.Fatalf("unprobed adapter must advertise no usable L3 capability, got %#v", caps)
+	}
+
+	if _, err := adapter.Probe(context.Background()); err != nil {
+		t.Fatalf("probe: %v", err)
+	}
+	caps = adapter.Capabilities()
+	if !caps.Ready || !caps.CleanState {
+		t.Errorf("expected probed clean-state readiness, got %#v", caps)
 	}
 	if len(caps.Browsers) != 3 {
-		t.Errorf("expected 3 supported browsers, got %d", len(caps.Browsers))
+		t.Errorf("expected 3 mock-attested browsers, got %d", len(caps.Browsers))
 	}
 }
 
@@ -103,7 +112,6 @@ func TestPlaywrightAdapter_Capture_MockSuccess(t *testing.T) {
 		t.Errorf("expected pixels to be projected, got nil or zero")
 	}
 
-	// Verify request payload received by runner
 	if runner.LastReq.Browser != "firefox" {
 		t.Errorf("expected worker request browser 'firefox', got %q", runner.LastReq.Browser)
 	}
@@ -260,7 +268,6 @@ func TestPlaywrightAdapter_CleanStateROIAndDiagnostics(t *testing.T) {
 		t.Fatalf("unexpected capture error: %v", err)
 	}
 
-	// 1. Verify ROI bounds
 	if packet.Pixels == nil {
 		t.Fatalf("expected pixels evidence")
 	}
@@ -271,17 +278,14 @@ func TestPlaywrightAdapter_CleanStateROIAndDiagnostics(t *testing.T) {
 		t.Errorf("expected requested-roi in VisualRegions, got %+v", packet.VisualRegions)
 	}
 
-	// 2. Verify ARIA tree
 	if len(packet.Accessibility) != 2 {
 		t.Errorf("expected 2 accessibility nodes, got %d", len(packet.Accessibility))
 	}
 
-	// 3. Verify Font status
 	if packet.Fonts == nil || packet.Fonts.Total != 2 {
 		t.Errorf("expected 2 font faces, got %+v", packet.Fonts)
 	}
 
-	// 4. Verify Runtime issues (console errors and network failures)
 	if len(packet.RuntimeIssues) != 2 {
 		t.Fatalf("expected 2 runtime issues, got %d", len(packet.RuntimeIssues))
 	}
@@ -292,14 +296,11 @@ func TestPlaywrightAdapter_CleanStateROIAndDiagnostics(t *testing.T) {
 		t.Errorf("issue 1 code = %s, want NETWORK_FAILURE", packet.RuntimeIssues[1].Code)
 	}
 
-	// 5. Verify Diagnostics
 	if packet.Diagnostics == nil || !packet.Diagnostics.Complete {
 		t.Errorf("expected complete diagnostics evidence")
 	}
 
-	// 6. Verify Deterministic Controls sent to runner
 	if !runner.LastReq.PauseAnimations || !runner.LastReq.FreezeClock {
 		t.Errorf("expected PauseAnimations and FreezeClock to be set in worker request")
 	}
 }
-
