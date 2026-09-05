@@ -50,7 +50,7 @@ A risk closes only after merged implementation, its named independent closure ev
 | FMEA-006 | Planning/documentation state contradicts implemented state | 7/9/3 | 189 | 7/9/3 | 189 | High | OPEN | #8 |
 | FMEA-007 | Durable retries can duplicate repair/memory side effects | 9/3/7 | 189 | 9/3/7 | 189 | High | OPEN | #9 |
 | FMEA-008 | Fidelity calibration remains trusted after environment/version drift | 9/4/7 | 252 | 9/4/7 | 252 | Critical | OPEN | #10 |
-| FMEA-009 | Repair loop optimizes against the same signals that approve completion | 9/5/7 | 315 | 9/5/7 | 315 | Critical | OPEN | #11 |
+| FMEA-009 | Repair loop optimizes against the same signals that approve completion | 9/5/7 | 315 | **9/2/3** | **54** | Low residual | **CLOSED** | #11 / PR #20 |
 | FMEA-010 | Memory/evolution leaks scope or promotes poisoned evidence | 10/2/8 | 160 | 10/2/8 | 160 | High | OPEN | #12 |
 | FMEA-011 | High-risk changes can land on unprotected `main` without required gates | 8/4/4 | 128 | 8/4/4 | 128 | High | OPEN | #13 |
 | FMEA-012 | Visual baseline is compared under an incompatible render environment | 7/5/5 | 175 | 7/5/5 | 175 | High | OPEN | #14 |
@@ -58,10 +58,10 @@ A risk closes only after merged implementation, its named independent closure ev
 Current milestone metrics:
 
 ```text
-open_critical_risks = 3
+open_critical_risks = 2
 open_high_risks = 6
-sum_open_rpn = 1928
-sum_closed_residual_rpn = 58
+sum_open_rpn = 1613
+sum_closed_residual_rpn = 112
 ```
 
 ## 4. Detailed risks
@@ -112,7 +112,7 @@ Controls/evidence: lossless durable run/project/source/files/tokens/nodes/routes
 **Residual:** `10/1/2 RPN=20`.  
 **Reopen:** canonical field loss, hard-coded run identity, independent Axiom tier selection, or equivalence-test failure.
 
-### FMEA-003 — Render freshness not revision-bound
+### FMEA-003 — Render freshness not revision-bound — CURRENT
 
 **Failure mode:** monotonic browser epoch is not tied to requested source/build revision.  
 **Effect:** stale/wrong content can be captured and pass deterministic checks.  
@@ -168,14 +168,44 @@ Controls/evidence: fail-closed pre-probe capabilities; worker protocol `1.0.0`; 
 **Closure gate:** calibration key includes exact runtime/environment identity; incompatible/expired calibration invalidates automatically; CI covers upgrade/mismatch behavior. FMEA-004 supplies worker/Playwright/browser identity in canonical provenance.  
 **Residual target:** `9/1/2 RPN=18`.
 
-### FMEA-009 — Repair verifier overfit / reward hacking — CURRENT
+### FMEA-009 — Repair verifier overfit / reward hacking — CLOSED
 
-**Failure mode:** autonomous repair optimizes against the same visible verifier/rubric/candidate signals later used to authorize completion.  
-**Effect:** apparent score improves while regressions/generalization failures escape.  
-**Owner:** repair/comparison/final verification/eval.  
-**Mitigation:** #11.  
-**Closure gate:** independent final verifier path; held-out/perturbed scenarios unavailable to the optimization loop; L3 for applicable high-risk/final gates; explicit held-out regression-escape metric; candidate is not marked complete from the same score it optimized.  
-**Residual target:** `9/2/3 RPN=54`.
+**Failure mode:** autonomous repair optimized against the same visible verifier/rubric/candidate signals that could authorize completion.  
+**Effect:** an apparently improved candidate could regress hidden interaction/responsive/product requirements and promote a false-success repair pattern into reusable memory.  
+**Owner:** `internal/repair`, comparison/final verification/eval, SncSinCore admission boundary.  
+**Mitigation:** #11, PR #20.
+
+Implemented controls:
+
+- optimization produces advisory `CandidateImproved`; it cannot set completion `Passed=true`;
+- `FinalGate` is the sole completion authority;
+- `PipelineFinalGate` requires a distinct canonical Pipeline and rejects reuse of the exact same collector instance behind a second wrapper;
+- final baseline/candidate validation uses `FinalGate=true`, clean-state evidence and therefore L3 TruthPath under the FMEA-001 fail-closed tier contract;
+- private held-out probes are unavailable to the proposal loop and expose aggregate cases/failures/regression-escape rate only, not probe identity/predicate details;
+- held-out failure, hard violations, protected-axis regression or independent comparison rejection veto completion;
+- original baseline critique remains immutable while iteration critique is separate mutable state;
+- source-state or semantic-finding stagnation/oscillation terminates local optimization and requires escalation;
+- SncSinCore repair-pattern success admission happens only after independent final PASS;
+- the overflow repair was changed from symptom hiding to removal of the forced-width cause after the real browser gate rejected the original local-score fix.
+
+Closure evidence:
+
+- PR #20 merged as `717e090b11e294dbdeb1032c1ed5bb99d4e4d017`;
+- `TestHostRepairEngine_OptimizationCannotSelfApprove`;
+- `TestFMEA009SharedCollectorIsNotIndependent`;
+- `TestFMEA009HeldOutRejectsVisibleScoreImprovement`;
+- `TestFMEA009MemoryAdmissionRequiresIndependentPass`;
+- `TestFMEA009HeldOutFailureBlocksMemoryPoisoning`;
+- `TestFMEA009RepeatedFindingStateEscalates`;
+- `TestFMEA009OptimizationComparisonUsesImmutableOriginalBaseline`;
+- `TestRepairFinalGateRealChromium` proves L2 optimization followed by a separate real Playwright/Chromium L3 completion path plus private held-out acceptance;
+- `ci` #212 PASS;
+- `truthpath` #17 PASS.
+
+Operational fault evidence: the first real-browser final-gate run rejected an overflow patch that mock evidence considered fixed. The local repair was corrected and the repeated L3 gate passed, proving the completion boundary is capable of catching optimization-oracle blind spots.  
+Re-score: Severity remains 9 because a future independence/held-out regression can still allow consequential false completion. O `5→2` because proposal scoring no longer owns completion, hidden probes can independently veto, and failed repairs cannot be promoted as successful memory. D `7→3` because self-approval, oracle reuse, held-out escape, poisoning, oscillation, baseline integrity and real L3 completion are executable gates with explicit escape metrics.  
+**Residual:** `9/2/3 RPN=54` — target met.  
+**Reopen:** optimization can directly set PASS; final verifier reuses the optimization collector/oracle; held-out probes become visible proposal inputs; a held-out failure can still complete/admit memory; oscillation continues silently; or real L3 final-gate CI fails.
 
 ### FMEA-010 — Memory scope leakage / epistemic poisoning
 
@@ -211,20 +241,20 @@ Completed:
 1. `FMEA-002` — CLOSED, residual RPN 20.
 2. `FMEA-004` — CLOSED, residual RPN 18.
 3. `FMEA-001` — CLOSED, residual RPN 20.
+4. `FMEA-009` — CLOSED, residual RPN 54.
 
 Current open order:
 
-1. `FMEA-009` — **CURRENT**
-2. `FMEA-003`
-3. `FMEA-008`
-4. `FMEA-005`
-5. `FMEA-007`
-6. `FMEA-012`
-7. `FMEA-010`
-8. `FMEA-006`
-9. `FMEA-011`
+1. `FMEA-003` — **CURRENT**
+2. `FMEA-008`
+3. `FMEA-005`
+4. `FMEA-007`
+5. `FMEA-012`
+6. `FMEA-010`
+7. `FMEA-006`
+8. `FMEA-011`
 
-`FMEA-009`, `FMEA-003`, and `FMEA-008` remain the open **Verification Integrity Barrier**.
+`FMEA-003` and `FMEA-008` remain the open **Verification Integrity Barrier**.
 
 ## 6. Change-control contract
 
