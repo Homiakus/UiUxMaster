@@ -15,7 +15,6 @@ import (
 func TestLiveAutonomousRepairLoopAndMemoryAdmission(t *testing.T) {
 	ctx := context.Background()
 
-	// 1. Setup a live project on disk with real HTML/CSS files
 	tmpDir, err := os.MkdirTemp("", "uiux-live-repair-*")
 	if err != nil {
 		t.Fatal(err)
@@ -42,7 +41,7 @@ func TestLiveAutonomousRepairLoopAndMemoryAdmission(t *testing.T) {
 
 	faultyCSS := `
 body {
-  width: 3000px;
+  width: 2000px;
 }
 `
 	if err := os.WriteFile(htmlPath, []byte(faultyHTML), 0644); err != nil {
@@ -52,31 +51,32 @@ body {
 		t.Fatal(err)
 	}
 
-	// 2. Setup SncSinCore EpMemoryStore
 	memStore := memory.NewEpMemoryStore()
-
-	// 3. Setup Pipeline & HostRepairEngine
-	pipeline := &engine.Pipeline{
+	optimizationPipeline := &engine.Pipeline{
 		Collector: &mockRepairCollector{},
 		VerPolicy: verifier.DefaultPolicy(),
 	}
-	repairEngine := NewWithMemory(pipeline, memStore)
+	finalPipeline := &engine.Pipeline{
+		Collector: &mockL3RepairCollector{},
+		VerPolicy: verifier.DefaultPolicy(),
+	}
+	finalGate := NewPipelineFinalGate(finalPipeline, NewPrivateHeldOutSuite(passHeldOutProbe{}))
+	repairEngine := NewWithMemoryAndFinalGate(optimizationPipeline, finalGate, memStore)
 
-	// 4. Run closed-loop repair
 	result, err := repairEngine.RunRepairLoop(ctx, RepairLoopRequest{
 		RunID:         "live-repair-hydropilot-001",
 		HTML:          faultyHTML,
 		CSS:           faultyCSS,
 		Profile:       design.FindProfile("saas-modern"),
-		ProtectedAxes: []string{"accessibility", "responsive", "typography"},
+		ProtectedAxes: []string{"accessibility", "responsive", "typography", "interaction"},
 		ProjectID:     "hydropilot",
 		MaxIterations: 3,
+		RiskClass:     RepairRiskCritical,
 	})
 	if err != nil {
 		t.Fatalf("RunRepairLoop failed: %v", err)
 	}
 
-	// 5. Apply the repaired content to the live files on disk
 	if err := os.WriteFile(htmlPath, []byte(result.RepairedHTML), 0644); err != nil {
 		t.Fatal(err)
 	}
@@ -84,50 +84,42 @@ body {
 		t.Fatal(err)
 	}
 
-	// 6. Assert 100% defect remediation and zero regression
 	if result.InitialFindings == 0 {
 		t.Fatalf("expected initial findings > 0, got %d", result.InitialFindings)
 	}
 	if result.FinalFindings != 0 {
-		t.Fatalf("expected 0 final findings after closed-loop repair, got %d", result.FinalFindings)
+		t.Fatalf("expected 0 optimization findings after repair, got %d", result.FinalFindings)
 	}
-	if !result.Passed {
-		t.Fatal("expected repair comparison to pass all constraints")
+	if !result.Passed || !result.FinalGate.Independent {
+		t.Fatalf("expected independent final PASS, final=%#v", result.FinalGate)
 	}
-
-	// 7. Verify SncSinCore Epistemic Memory Admission
+	if result.FinalGate.EvidenceTier != "L3" || result.Metrics.HeldOutEscapeRate != 0 {
+		t.Fatalf("unexpected final evidence/metrics: final=%#v metrics=%#v", result.FinalGate, result.Metrics)
+	}
 	if !result.MemoryAdmitted || result.AdmittedAtoms == 0 {
-		t.Fatalf("expected memory admission, got admitted=%v atoms=%d", result.MemoryAdmitted, result.AdmittedAtoms)
+		t.Fatalf("expected memory admission only after final PASS, got admitted=%v atoms=%d", result.MemoryAdmitted, result.AdmittedAtoms)
 	}
 
-	// Retrieve admitted atom from memory store
 	ns, err := memory.NewProjectKnowledgeNamespace("hydropilot")
 	if err != nil {
 		t.Fatal(err)
 	}
-
 	res, err := memStore.Query(ctx, memory.QueryRequest{Namespace: ns})
 	if err != nil {
 		t.Fatalf("memStore.Query failed: %v", err)
 	}
 	if res.Total == 0 {
-		t.Fatal("expected admitted atoms in hydropilot project namespace")
+		t.Fatal("expected independently proven repair atoms in hydropilot namespace")
 	}
 
 	foundRepairPattern := false
-	for _, a := range res.Atoms {
-		if a.Kind == memory.NodeRepairPattern {
+	for _, atom := range res.Atoms {
+		if atom.Kind == memory.NodeRepairPattern {
 			foundRepairPattern = true
-			if pat, ok := a.Data.(memory.RepairPatternAtom); ok {
-				t.Logf("Admitted memory atom: pattern_id=%s, strategy=%q, success_rate=%.2f",
-					pat.PatternID, pat.Strategy, pat.SuccessRate)
-			}
+			break
 		}
 	}
 	if !foundRepairPattern {
-		t.Fatal("expected NodeRepairPattern atom committed to SncSinCore memory")
+		t.Fatal("expected NodeRepairPattern atom committed after independent PASS")
 	}
-
-	t.Logf("Live autonomous repair verification successful: %d initial findings remediated to 0, %d patches written to disk, %d atoms committed to SncSinCore memory",
-		result.InitialFindings, len(result.PatchesApplied), res.Total)
 }
