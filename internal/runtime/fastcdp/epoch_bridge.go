@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 	"sync"
 )
 
@@ -29,10 +30,15 @@ type bindingCalledParams struct {
 	ExecutionContextID int64  `json:"executionContextId"`
 }
 
+type renderSignalPayload struct {
+	Epoch    uint64 `json:"epoch"`
+	Revision string `json:"revision,omitempty"`
+}
+
 // InstallEpochBridge installs a tiny page helper. The application/HMR harness
-// must call window.__UIUX_SIGNAL_RENDER__(epoch) only after the committed render
-// is observable. This avoids networkidle/arbitrary sleeps and makes freshness an
-// explicit application-level contract.
+// should call window.__UIUX_SIGNAL_RENDER__(epoch, revision) only after the
+// committed render for that revision is observable. The single-argument form is
+// retained for revisionless legacy callers.
 func (c *Connection) InstallEpochBridge(ctx context.Context, session SessionID, gate *EpochGate) (*EpochBridge, error) {
 	if session == "" {
 		return nil, fmt.Errorf("fastcdp: epoch bridge requires session id")
@@ -55,8 +61,6 @@ func (c *Connection) InstallEpochBridge(ctx context.Context, session SessionID, 
 		unsubscribe()
 		return nil, fmt.Errorf("fastcdp: install epoch preload: %w", err)
 	}
-	// The page may already be loaded when the bridge is installed, so install the
-	// helper in the current execution context as well.
 	if err := c.Call(ctx, string(session), "Runtime.evaluate", map[string]any{
 		"expression":    script,
 		"returnByValue": true,
@@ -82,7 +86,10 @@ func (b *EpochBridge) consume(events <-chan Event) {
 		select {
 		case <-b.stop:
 			return
-		case event := <-events:
+		case event, ok := <-events:
+			if !ok {
+				return
+			}
 			if SessionID(event.SessionID) != b.Session {
 				continue
 			}
@@ -90,13 +97,33 @@ func (b *EpochBridge) consume(events <-chan Event) {
 			if err := json.Unmarshal(event.Params, &params); err != nil || params.Name != defaultEpochBinding {
 				continue
 			}
-			epoch, err := strconv.ParseUint(params.Payload, 10, 64)
+			token, err := parseRenderSignalPayload(params.Payload)
 			if err != nil {
 				continue
 			}
-			b.Gate.Advance(epoch)
+			b.Gate.AdvanceToken(token)
 		}
 	}
+}
+
+func parseRenderSignalPayload(payload string) (RenderToken, error) {
+	payload = strings.TrimSpace(payload)
+	if payload == "" {
+		return RenderToken{}, fmt.Errorf("fastcdp: empty render signal")
+	}
+	if strings.HasPrefix(payload, "{") {
+		var signal renderSignalPayload
+		if err := json.Unmarshal([]byte(payload), &signal); err != nil {
+			return RenderToken{}, fmt.Errorf("fastcdp: decode render signal: %w", err)
+		}
+		signal.Revision = strings.TrimSpace(signal.Revision)
+		return RenderToken{Epoch: signal.Epoch, Revision: signal.Revision}, nil
+	}
+	epoch, err := strconv.ParseUint(payload, 10, 64)
+	if err != nil {
+		return RenderToken{}, fmt.Errorf("fastcdp: decode legacy render epoch: %w", err)
+	}
+	return RenderToken{Epoch: epoch}, nil
 }
 
 func (b *EpochBridge) Close() {
@@ -109,7 +136,6 @@ func (b *EpochBridge) Close() {
 	})
 }
 
-// IsClosed reports whether the epoch bridge has been terminated.
 func (b *EpochBridge) IsClosed() bool {
 	if b == nil {
 		return true
@@ -128,15 +154,27 @@ func epochBridgeScript(binding string) string {
 	return fmt.Sprintf(`(() => {
   const binding = globalThis[%s];
   if (typeof binding !== "function") return;
-  globalThis[%s] = (epoch) => {
+  const emit = (epoch, revision) => {
+    if (revision) {
+      binding(JSON.stringify({epoch, revision}));
+    } else {
+      binding(String(epoch));
+    }
+  };
+  globalThis[%s] = (epoch, revision = "") => {
     const value = Number(epoch);
     if (!Number.isFinite(value) || value < 0) return false;
     const normalized = Math.floor(value);
+    const normalizedRevision = String(revision ?? "").trim();
     globalThis.__UIUX_RENDER_EPOCH__ = normalized;
-    binding(String(normalized));
+    globalThis.__UIUX_RENDER_REVISION__ = normalizedRevision;
+    emit(normalized, normalizedRevision);
     return true;
   };
   const current = Number(globalThis.__UIUX_RENDER_EPOCH__);
-  if (Number.isFinite(current) && current >= 0) binding(String(Math.floor(current)));
+  if (Number.isFinite(current) && current >= 0) {
+    const revision = String(globalThis.__UIUX_RENDER_REVISION__ ?? "").trim();
+    emit(Math.floor(current), revision);
+  }
 })();`, bindingJSON, helperJSON)
 }
