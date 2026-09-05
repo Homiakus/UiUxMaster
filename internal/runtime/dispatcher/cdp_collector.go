@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -12,6 +13,7 @@ import (
 	"github.com/Homiakus/UiUxMaster/internal/engine"
 	"github.com/Homiakus/UiUxMaster/internal/evidence"
 	"github.com/Homiakus/UiUxMaster/internal/evidenceplan"
+	"github.com/Homiakus/UiUxMaster/internal/fidelity"
 	"github.com/Homiakus/UiUxMaster/internal/runtime/fastcdp"
 )
 
@@ -41,14 +43,14 @@ type CDPCollector struct {
 	pages map[fastcdp.TargetID]cdpPageState
 }
 
-func NewCDPCollector(ctx context.Context, runtime *fastcdp.ResidentRuntime, config CDPCollectorConfig) (*CDPCollector, error) {
-	if runtime == nil || runtime.Conn == nil || runtime.Pages == nil {
+func NewCDPCollector(ctx context.Context, resident *fastcdp.ResidentRuntime, config CDPCollectorConfig) (*CDPCollector, error) {
+	if resident == nil || resident.Conn == nil || resident.Pages == nil {
 		return nil, fmt.Errorf("dispatcher: resident FastCDP runtime is required")
 	}
 	if config.Viewport.Width <= 0 || config.Viewport.Height <= 0 {
 		config.Viewport = evidence.Viewport{Width: 1280, Height: 800, DeviceScale: 1}
 	}
-	browser, err := runtime.Version(ctx)
+	browser, err := resident.Version(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("dispatcher: read browser version: %w", err)
 	}
@@ -59,11 +61,30 @@ func NewCDPCollector(ctx context.Context, runtime *fastcdp.ResidentRuntime, conf
 		config.FidelityID = "blink-l2"
 	}
 	return &CDPCollector{
-		runtime: runtime,
+		runtime: resident,
 		config:  config,
 		browser: browser,
 		pages:   make(map[fastcdp.TargetID]cdpPageState),
 	}, nil
+}
+
+func (c *CDPCollector) CalibrationEnvironment(_ context.Context) (fidelity.CalibrationEnvironment, error) {
+	if c == nil {
+		return fidelity.CalibrationEnvironment{}, fmt.Errorf("dispatcher: nil CDP collector")
+	}
+	env := fidelity.CalibrationEnvironment{
+		RendererName:    "fastcdp",
+		RendererVersion: c.browser.Product,
+		FidelityID:      c.config.FidelityID,
+		BrowserFamily:   "chromium",
+		BrowserVersion:  c.browser.Product,
+		RuntimeVersion:  c.browser.ProtocolVersion,
+		Platform:        runtime.GOOS + "/" + runtime.GOARCH,
+	}
+	if err := env.Validate(); err != nil {
+		return fidelity.CalibrationEnvironment{}, err
+	}
+	return env, nil
 }
 
 func (c *CDPCollector) CollectL2(ctx context.Context, req engine.ValidationRequest, plan evidenceplan.Plan) (evidence.Packet, error) {

@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/Homiakus/UiUxMaster/internal/evidence"
@@ -29,25 +30,28 @@ type PipelineTelemetry struct {
 
 // PipelineResult encapsulates the complete execution trace from change to decision.
 type PipelineResult struct {
-	Request      ValidationRequest            `json:"request"`
-	Scope        invalidation.ValidationScope `json:"scope"`
-	Assessment   fidelity.Assessment          `json:"assessment"`
-	Plan         ValidationPlan               `json:"plan"`
-	Packet       evidence.Packet              `json:"packet"`
-	Verification verifier.Result              `json:"verification"`
-	Report       Report                       `json:"report"`
-	Telemetry    PipelineTelemetry            `json:"telemetry"`
+	Request       ValidationRequest            `json:"request"`
+	Scope         invalidation.ValidationScope `json:"scope"`
+	Assessment    fidelity.Assessment          `json:"assessment"`
+	Plan          ValidationPlan               `json:"plan"`
+	Packet        evidence.Packet              `json:"packet"`
+	Verification  verifier.Result              `json:"verification"`
+	Report        Report                       `json:"report"`
+	PassAuthority PassAuthority                `json:"pass_authority"`
+	Telemetry     PipelineTelemetry            `json:"telemetry"`
 }
 
 // Pipeline orchestrates the canonical validation path:
 // changed source/CSS token → ImpactSet → bounded ValidationScope →
 // fidelity route → runtime evidence → attestation → verifier → engine decision.
 type Pipeline struct {
-	Resolver     *impact.Resolver
-	Policy       *invalidation.Policy
-	Collector    Collector
-	VerPolicy    verifier.Policy
-	Capabilities fastrender.Capabilities
+	Resolver          *impact.Resolver
+	Policy            *invalidation.Policy
+	Collector         Collector
+	VerPolicy         verifier.Policy
+	Capabilities      fastrender.Capabilities
+	CalibrationMatrix *fidelity.CalibrationMatrix
+	Calibration       *fidelity.CalibrationAuthority
 }
 
 func (p *Pipeline) Execute(ctx context.Context, req ValidationRequest) (PipelineResult, error) {
@@ -107,7 +111,7 @@ func (p *Pipeline) Execute(ctx context.Context, req ValidationRequest) (Pipeline
 	}
 	elapsedCollect := float64(time.Since(startCollect).Microseconds()) / 1000.0
 
-	// No verifier or engine decision sees evidence before both tier and revision
+	// No verifier or engine decision sees evidence before tier and revision
 	// provenance have passed their independent fail-closed guards.
 	startVerify := time.Now()
 	vPolicy := p.VerPolicy
@@ -119,6 +123,21 @@ func (p *Pipeline) Execute(ctx context.Context, req ValidationRequest) (Pipeline
 
 	startSynthesis := time.Now()
 	report := EvaluateForPlan(packet, plan.EvidencePlan)
+
+	var calibrationProvider CalibrationContextProvider
+	if provider, ok := p.Collector.(CalibrationContextProvider); ok {
+		calibrationProvider = provider
+	}
+	passAuthority := EvaluatePassAuthority(ctx, req, plan, packet, p.CalibrationMatrix, p.Calibration, calibrationProvider)
+	if passAuthority.Required && !passAuthority.Allowed && report.BlockingFindings == 0 && report.HighFindings == 0 && len(report.MissingEvidence) == 0 {
+		report.MissingEvidence = append(report.MissingEvidence, "valid runtime calibration for legal PASS")
+		sort.Strings(report.MissingEvidence)
+		if passAuthority.RequiredEscalation != "" {
+			report.RecommendedNext = fmt.Sprintf("recalibrate exact runtime parity or escalate to %s before PASS", passAuthority.RequiredEscalation)
+		} else {
+			report.RecommendedNext = "recalibrate exact runtime parity before PASS"
+		}
+	}
 	elapsedSynthesis := float64(time.Since(startSynthesis).Microseconds()) / 1000.0
 
 	totalMS := float64(time.Since(startTotal).Microseconds()) / 1000.0
@@ -148,13 +167,14 @@ func (p *Pipeline) Execute(ctx context.Context, req ValidationRequest) (Pipeline
 	}
 
 	return PipelineResult{
-		Request:      req,
-		Scope:        scope,
-		Assessment:   assessment,
-		Plan:         plan,
-		Packet:       packet,
-		Verification: vResult,
-		Report:       report,
-		Telemetry:    telemetry,
+		Request:       req,
+		Scope:         scope,
+		Assessment:    assessment,
+		Plan:          plan,
+		Packet:        packet,
+		Verification:  vResult,
+		Report:        report,
+		PassAuthority: passAuthority,
+		Telemetry:     telemetry,
 	}, nil
 }

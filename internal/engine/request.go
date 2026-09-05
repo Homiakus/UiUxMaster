@@ -17,26 +17,27 @@ import (
 // Callers (MCP, Axiom, CLI, tests) supply changes, intent, and optional overrides,
 // and the engine orchestrates scope resolution and evidence planning.
 type ValidationRequest struct {
-	RunID          string                       `json:"run_id"`
-	ProjectID      string                       `json:"project_id,omitempty"`
-	SourceDigest   string                       `json:"source_digest,omitempty"`
-	ChangedFiles   []string                     `json:"changed_files,omitempty"`
-	ChangedTokens  []string                     `json:"changed_tokens,omitempty"`
-	ChangedNodes   []string                     `json:"changed_nodes,omitempty"`
-	Intent         evidenceplan.Intent          `json:"intent,omitempty"`
-	FinalGate      bool                         `json:"final_gate,omitempty"`
-	Scope          invalidation.ValidationScope `json:"scope,omitempty"`
-	ForceWholeSite bool                         `json:"force_whole_site,omitempty"`
-	TargetRoutes   []string                     `json:"target_routes,omitempty"`
-	Viewports      []string                     `json:"viewports,omitempty"`
-	Themes         []string                     `json:"themes,omitempty"`
-	Need           EvidenceNeed                 `json:"need,omitempty"`
-	Region         *evidenceplan.Region         `json:"region,omitempty"`
-	HTML           []byte                       `json:"html,omitempty"`
-	CSS            []byte                       `json:"css,omitempty"`
-	BaseURL        string                       `json:"base_url,omitempty"`
-	BaselineRGBA   *image.RGBA                  `json:"-"`
-	Tolerance      uint8                        `json:"tolerance,omitempty"`
+	RunID             string                       `json:"run_id"`
+	ProjectID         string                       `json:"project_id,omitempty"`
+	SourceDigest      string                       `json:"source_digest,omitempty"`
+	ChangedFiles      []string                     `json:"changed_files,omitempty"`
+	ChangedTokens     []string                     `json:"changed_tokens,omitempty"`
+	ChangedNodes      []string                     `json:"changed_nodes,omitempty"`
+	Intent            evidenceplan.Intent          `json:"intent,omitempty"`
+	FinalGate         bool                         `json:"final_gate,omitempty"`
+	RequireLegalPass  bool                         `json:"require_legal_pass,omitempty"`
+	Scope             invalidation.ValidationScope `json:"scope,omitempty"`
+	ForceWholeSite    bool                         `json:"force_whole_site,omitempty"`
+	TargetRoutes      []string                     `json:"target_routes,omitempty"`
+	Viewports         []string                     `json:"viewports,omitempty"`
+	Themes            []string                     `json:"themes,omitempty"`
+	Need              EvidenceNeed                 `json:"need,omitempty"`
+	Region            *evidenceplan.Region         `json:"region,omitempty"`
+	HTML              []byte                       `json:"html,omitempty"`
+	CSS               []byte                       `json:"css,omitempty"`
+	BaseURL           string                       `json:"base_url,omitempty"`
+	BaselineRGBA      *image.RGBA                  `json:"-"`
+	Tolerance         uint8                        `json:"tolerance,omitempty"`
 }
 
 // Normalize ensures deterministic slices and sensible default values.
@@ -46,6 +47,9 @@ func (r *ValidationRequest) Normalize() {
 	}
 	if r.Intent == "" && r.Need == (EvidenceNeed{}) {
 		r.Intent = evidenceplan.IntentQuickStructural
+	}
+	if r.FinalGate {
+		r.RequireLegalPass = true
 	}
 	r.ChangedFiles = uniqueSorted(r.ChangedFiles)
 	r.ChangedTokens = uniqueSorted(r.ChangedTokens)

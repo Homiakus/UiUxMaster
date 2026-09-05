@@ -25,6 +25,8 @@ type Adapter struct {
 	Policy    verifier.Policy
 }
 
+// New is retained for collection/compatibility workflows, but the legacy path
+// cannot issue DecisionPass because it does not carry canonical PassAuthority.
 func New(collector Collector) *Adapter {
 	return &Adapter{Collector: collector, Policy: verifier.DefaultPolicy()}
 }
@@ -33,10 +35,6 @@ func NewPipelineAdapter(pipeline *engine.Pipeline) *Adapter {
 	return &Adapter{Pipeline: pipeline, Policy: verifier.DefaultPolicy()}
 }
 
-// PlanEvidence remains part of the durable Axiom workflow contract, but for a
-// Pipeline adapter it is only a compact planning projection. The authoritative
-// scope, fidelity assessment and runtime tier are recomputed by engine.Pipeline
-// from the canonical Change payload inside CollectVerify.
 func (a *Adapter) PlanEvidence(_ context.Context, change controlplane.Change) (controlplane.EvidencePlan, error) {
 	plan := evidenceplan.Build(canonicalSignals(change))
 	return fromPlan(plan), nil
@@ -49,10 +47,6 @@ func (a *Adapter) CollectVerify(ctx context.Context, change controlplane.Change,
 	var report engine.Report
 
 	if a.Pipeline != nil {
-		// Do not project the Axiom-side EvidencePlan back into engine.EvidenceNeed.
-		// Doing so would make the control plane a second routing authority. The
-		// canonical pipeline receives the lossless durable change scope and owns
-		// impact resolution, invalidation, evidence synthesis and tier selection.
 		req := toValidationRequest(change)
 		res, err := a.Pipeline.Execute(ctx, req)
 		if err != nil {
@@ -97,6 +91,10 @@ func (a *Adapter) Decide(_ context.Context, _ controlplane.Change, _ controlplan
 		return controlplane.DecisionPixels, nil
 	case result.VisualRegions > 0 && result.VisualFindings == 0 && result.PixelEvidence:
 		return controlplane.DecisionSemantic, nil
+	case a == nil || a.Pipeline == nil:
+		// Legacy collector mode has no canonical CalibrationAuthority/PassAuthority.
+		// It remains useful for diagnostics but is never an authority for PASS.
+		return controlplane.DecisionRecollect, nil
 	default:
 		return controlplane.DecisionPass, nil
 	}
@@ -107,10 +105,6 @@ func canonicalSignals(change controlplane.Change) evidenceplan.Signals {
 	req.Normalize()
 	req.Need = req.DeriveNeed()
 	signals := req.Signals(riskLevel(change.Risk))
-
-	// Compatibility for older durable runs that predate canonical change sets.
-	// These flags can only widen the advisory evidence shape; they never choose
-	// the authoritative execution tier when Pipeline is configured.
 	signals.CustomFontsChanged = signals.CustomFontsChanged || change.CustomFontsChanged
 	signals.SemanticsChanged = signals.SemanticsChanged || change.SemanticsChanged
 	signals.InteractionChanged = signals.InteractionChanged || change.InteractionChanged
@@ -159,11 +153,6 @@ func missingOnlyPixels(missing []string) bool {
 	return true
 }
 
-// toValidationRequest is the single Axiom -> engine semantic projection.
-// It must remain lossless for all durable fields used by PlanScope and route
-// selection. requested EvidencePlan is intentionally not an argument: Axiom is
-// not allowed to narrow the canonical engine request or independently select an
-// evidence tier.
 func toValidationRequest(change controlplane.Change) engine.ValidationRequest {
 	need := engine.EvidenceNeed{
 		Geometry:     change.Need.Geometry,
@@ -175,28 +164,27 @@ func toValidationRequest(change controlplane.Change) engine.ValidationRequest {
 		Semantic:     change.Need.Semantic,
 	}
 
-	// Preserve behavior for durable runs written before ValidationNeed existed.
-	// Legacy flags can only widen evidence requirements.
 	need.Geometry = need.Geometry || change.SemanticsChanged
 	need.Styles = need.Styles || change.CustomFontsChanged
 	need.Scenario = need.Scenario || change.InteractionChanged
 	need.CleanState = need.CleanState || change.RuntimeChanged
 
 	req := engine.ValidationRequest{
-		RunID:          change.RunID,
-		ProjectID:      change.ProjectID,
-		SourceDigest:   change.SourceDigest,
-		ChangedFiles:   append([]string(nil), change.ChangedFiles...),
-		ChangedTokens:  append([]string(nil), change.ChangedTokens...),
-		ChangedNodes:   append([]string(nil), change.ChangedNodes...),
-		Intent:         evidenceplan.Intent(change.Intent),
-		FinalGate:      change.FinalGate,
-		ForceWholeSite: change.ForceWholeSite,
-		TargetRoutes:   append([]string(nil), change.TargetRoutes...),
-		Viewports:      append([]string(nil), change.Viewports...),
-		Themes:         append([]string(nil), change.Themes...),
-		Need:           need,
-		BaseURL:        change.BaseURL,
+		RunID:            change.RunID,
+		ProjectID:        change.ProjectID,
+		SourceDigest:     change.SourceDigest,
+		ChangedFiles:     append([]string(nil), change.ChangedFiles...),
+		ChangedTokens:    append([]string(nil), change.ChangedTokens...),
+		ChangedNodes:     append([]string(nil), change.ChangedNodes...),
+		Intent:           evidenceplan.Intent(change.Intent),
+		FinalGate:        change.FinalGate,
+		RequireLegalPass: true,
+		ForceWholeSite:   change.ForceWholeSite,
+		TargetRoutes:     append([]string(nil), change.TargetRoutes...),
+		Viewports:        append([]string(nil), change.Viewports...),
+		Themes:           append([]string(nil), change.Themes...),
+		Need:             need,
+		BaseURL:          change.BaseURL,
 	}
 	if change.Region != nil {
 		req.Region = &evidenceplan.Region{

@@ -8,10 +8,30 @@ import (
 	"time"
 
 	"github.com/Homiakus/UiUxMaster/control/axiom/controlplane"
+	"github.com/Homiakus/UiUxMaster/internal/engine"
 	"github.com/Homiakus/UiUxMaster/internal/evidence"
 	"github.com/Homiakus/UiUxMaster/internal/evidenceplan"
+	"github.com/Homiakus/UiUxMaster/internal/fidelity"
+	runtimedispatcher "github.com/Homiakus/UiUxMaster/internal/runtime/dispatcher"
 	"github.com/Homiakus/UiUxMaster/internal/runtime/fastcdp"
+	"github.com/Homiakus/UiUxMaster/internal/verifier"
 )
+
+type fmea008TruthIdentityCollector struct {
+	env fidelity.CalibrationEnvironment
+}
+
+func (c *fmea008TruthIdentityCollector) CollectL3(_ context.Context, req engine.ValidationRequest, _ evidenceplan.Plan) (evidence.Packet, error) {
+	return evidence.Packet{
+		RunID: req.RunID,
+		Renderer: evidence.RendererRef{Tier: "L3", Name: c.env.RendererName, Version: c.env.RendererVersion, FidelityID: c.env.FidelityID},
+		Viewport: evidence.Viewport{Width: 320, Height: 200, DeviceScale: 1},
+	}, nil
+}
+
+func (c *fmea008TruthIdentityCollector) CalibrationEnvironment(_ context.Context) (fidelity.CalibrationEnvironment, error) {
+	return c.env, nil
+}
 
 func TestAxiomFastCDPEndToEndIntegration(t *testing.T) {
 	if os.Getenv("UIUX_AXIOM_FASTCDP_INTEGRATION") != "1" {
@@ -20,7 +40,7 @@ func TestAxiomFastCDPEndToEndIntegration(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
-	runtime, err := fastcdp.StartResidentRuntime(ctx, fastcdp.RuntimeConfig{
+	resident, err := fastcdp.StartResidentRuntime(ctx, fastcdp.RuntimeConfig{
 		Browser: fastcdp.BrowserConfig{
 			Executable:     os.Getenv("UIUX_CHROME_BIN"),
 			StartupTimeout: 30 * time.Second,
@@ -39,12 +59,15 @@ func TestAxiomFastCDPEndToEndIntegration(t *testing.T) {
 	defer func() {
 		closeCtx, closeCancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer closeCancel()
-		if err := runtime.Close(closeCtx); err != nil {
+		if err := resident.Close(closeCtx); err != nil {
 			t.Errorf("close runtime: %v", err)
 		}
 	}()
 
-	collector, err := NewFastCDPCollector(ctx, runtime, FastCDPCollectorConfig{
+	// Keep the control-slice collector for the direct FMEA-003 provenance/fault
+	// assertions below, but production-like Axiom decisions go through the
+	// canonical engine Pipeline so PassAuthority cannot be bypassed.
+	directCollector, err := NewFastCDPCollector(ctx, resident, FastCDPCollectorConfig{
 		Viewport:        evidence.Viewport{Width: 320, Height: 200, DeviceScale: 1},
 		Scenario:        "axiom-fastcdp-e2e",
 		FidelityID:      "blink-l2",
@@ -53,12 +76,73 @@ func TestAxiomFastCDPEndToEndIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	runner, err := controlplane.NewMemory(New(collector))
+	rootCollector, err := runtimedispatcher.NewCDPCollector(ctx, resident, runtimedispatcher.CDPCollectorConfig{
+		Viewport:        evidence.Viewport{Width: 320, Height: 200, DeviceScale: 1},
+		Scenario:        "axiom-fastcdp-e2e",
+		FidelityID:      "blink-l2",
+		WaitForNewEpoch: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	truthIdentity := &fmea008TruthIdentityCollector{env: fidelity.CalibrationEnvironment{
+		RendererName: "playwright-chromium",
+		RendererVersion: "worker=axiom-ci;playwright=axiom-ci;browser=chromium-ci",
+		FidelityID: "truthpath:axiom-ci",
+		BrowserFamily: "chromium",
+		BrowserVersion: "chromium-ci",
+		WorkerVersion: "axiom-ci",
+		RuntimeVersion: "axiom-ci",
+	}}
+	dispatch := runtimedispatcher.New(runtimedispatcher.Config{L2Collector: rootCollector, L3Collector: truthIdentity})
+
+	// Build parity records against the exact live FastCDP identity and the
+	// configured TruthPath oracle identity. The real TruthPath workflow separately
+	// proves the oracle side with an actually launched Playwright Chromium.
+	approxEnv, err := rootCollector.CalibrationEnvironment(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	calibrationCtx, err := dispatch.CalibrationContext(ctx,
+		engine.ValidationRequest{Intent: evidenceplan.IntentQuickStructural},
+		engine.ValidationPlan{Need: engine.EvidenceNeed{Geometry: true}, EvidencePlan: evidenceplan.Plan{Structural: true}},
+		evidence.Packet{
+			Renderer: evidence.RendererRef{Tier: "L2", Name: approxEnv.RendererName, Version: approxEnv.RendererVersion, FidelityID: approxEnv.FidelityID},
+			Viewport: evidence.Viewport{Width: 320, Height: 200, DeviceScale: 1},
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	key, err := calibrationCtx.Key()
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UTC()
+	registry := fidelity.NewCalibrationRegistry()
+	for _, class := range []fidelity.EvidenceClass{
+		fidelity.EvidenceClassStaticLayout,
+		fidelity.EvidenceClassTypography,
+		fidelity.EvidenceClassInteractive,
+		fidelity.EvidenceClassPixelRegression,
+	} {
+		if err := registry.Put(fidelity.CalibrationRecord{
+			Class: class, Tier: fidelity.TierL2, Context: calibrationCtx, EnvironmentKey: key,
+			CorpusDigest: "sha256:axiom-fastcdp-parity", ArtifactRef: "ci://axiom-control/fastcdp-parity",
+			Samples: 100, PassedSamples: 100, CreatedAt: now, ExpiresAt: now.Add(24 * time.Hour),
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	authority := fidelity.NewCalibrationAuthority(registry, fidelity.DefaultCalibrationPolicy())
+	authority.Now = func() time.Time { return now.Add(time.Minute) }
+	pipeline := &engine.Pipeline{Collector: dispatch, Calibration: authority, VerPolicy: verifier.DefaultPolicy()}
+	runner, err := controlplane.NewMemory(NewPipelineAdapter(pipeline))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	mutateWarmPage(t, ctx, runtime, `
+	mutateWarmPage(t, ctx, resident, `
 		document.documentElement.style.background = "white";
 		document.body.style.margin = "0";
 		document.body.innerHTML = '<main style="width:300px;height:120px"><button style="width:90px;height:48px">Publish</button></main>';
@@ -72,13 +156,13 @@ func TestAxiomFastCDPEndToEndIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 	if clean.Status != "completed" || clean.Decision != controlplane.DecisionPass {
-		t.Fatalf("clean run = %#v", clean)
+		t.Fatalf("clean calibrated run = %#v", clean)
 	}
 	if clean.Usage.BrowserFetches != 1 || !clean.Validation.DiagnosticsComplete {
 		t.Fatalf("clean usage/diagnostics = %#v / %#v", clean.Usage, clean.Validation)
 	}
 
-	mutateWarmPage(t, ctx, runtime, `
+	mutateWarmPage(t, ctx, resident, `
 		console.error("axiom-cycle-error");
 		window.__UIUX_SIGNAL_RENDER__(2, "rev-broken");
 	`)
@@ -99,7 +183,7 @@ func TestAxiomFastCDPEndToEndIntegration(t *testing.T) {
 		t.Fatalf("second diagnostic window is incomplete: %#v", broken.Validation)
 	}
 
-	mutateWarmPage(t, ctx, runtime, `
+	mutateWarmPage(t, ctx, resident, `
 		document.querySelector("button").style.background = "rgb(20, 90, 200)";
 		window.__UIUX_SIGNAL_RENDER__(3, "rev-visual");
 	`)
@@ -125,10 +209,10 @@ func TestAxiomFastCDPEndToEndIntegration(t *testing.T) {
 		t.Fatalf("visual diagnostic window is incomplete: %#v", visual.Validation)
 	}
 
-	// Direct real-browser provenance proof: the packet must carry the exact
-	// revision that released the epoch waiter.
-	mutateWarmPage(t, ctx, runtime, `window.__UIUX_SIGNAL_RENDER__(4, "rev-attested");`)
-	packet, err := collector.Collect(ctx, controlplane.Change{SourceDigest: "rev-attested"}, evidenceplan.Plan{Structural: true})
+	// Direct real-browser provenance proof remains on the isolated control
+	// collector: the packet must carry the exact revision that released the waiter.
+	mutateWarmPage(t, ctx, resident, `window.__UIUX_SIGNAL_RENDER__(4, "rev-attested");`)
+	packet, err := directCollector.Collect(ctx, controlplane.Change{SourceDigest: "rev-attested"}, evidenceplan.Plan{Structural: true})
 	if err != nil {
 		t.Fatalf("attested collection: %v", err)
 	}
@@ -136,21 +220,17 @@ func TestAxiomFastCDPEndToEndIntegration(t *testing.T) {
 		t.Fatalf("freshness provenance = %#v", packet.Freshness)
 	}
 
-	// A newer numeric epoch with the wrong revision must be rejected and the page
-	// discarded/reset rather than converted into usable evidence.
-	mutateWarmPage(t, ctx, runtime, `window.__UIUX_SIGNAL_RENDER__(5, "rev-wrong");`)
-	_, err = collector.Collect(ctx, controlplane.Change{SourceDigest: "rev-expected"}, evidenceplan.Plan{Structural: true})
+	mutateWarmPage(t, ctx, resident, `window.__UIUX_SIGNAL_RENDER__(5, "rev-wrong");`)
+	_, err = directCollector.Collect(ctx, controlplane.Change{SourceDigest: "rev-expected"}, evidenceplan.Plan{Structural: true})
 	if !errors.Is(err, fastcdp.ErrRevisionMismatch) {
 		t.Fatalf("mismatch err = %v, want ErrRevisionMismatch", err)
 	}
 
-	// After mismatch/discard, a fresh warm page can establish a new token lineage
-	// and recover with a matching revision.
-	mutateWarmPage(t, ctx, runtime, `
+	mutateWarmPage(t, ctx, resident, `
 		document.body.innerHTML = '<main><button>Recovered</button></main>';
 		window.__UIUX_SIGNAL_RENDER__(1, "rev-recovered");
 	`)
-	recovered, err := collector.Collect(ctx, controlplane.Change{SourceDigest: "rev-recovered"}, evidenceplan.Plan{Structural: true})
+	recovered, err := directCollector.Collect(ctx, controlplane.Change{SourceDigest: "rev-recovered"}, evidenceplan.Plan{Structural: true})
 	if err != nil {
 		t.Fatalf("recovered collection: %v", err)
 	}
@@ -159,9 +239,12 @@ func TestAxiomFastCDPEndToEndIntegration(t *testing.T) {
 	}
 }
 
-func mutateWarmPage(t *testing.T, ctx context.Context, runtime *fastcdp.ResidentRuntime, expression string) {
+// mutateWarmPage is a real CDP delivery barrier, not merely a Runtime.evaluate
+// barrier. Runtime.bindingCalled is consumed asynchronously by EpochBridge, so
+// the helper waits until the render epoch has actually reached the Go gate.
+func mutateWarmPage(t *testing.T, ctx context.Context, resident *fastcdp.ResidentRuntime, expression string) {
 	t.Helper()
-	lease, err := runtime.Pages.Acquire(ctx)
+	lease, err := resident.Pages.Acquire(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -170,12 +253,17 @@ func mutateWarmPage(t *testing.T, ctx context.Context, runtime *fastcdp.Resident
 		lease.Release()
 		t.Fatal("nil warm page")
 	}
-	if err := runtime.Conn.Call(ctx, string(page.Session.SessionID), "Runtime.evaluate", map[string]any{
+	before := page.Epoch.Current()
+	if err := resident.Conn.Call(ctx, string(page.Session.SessionID), "Runtime.evaluate", map[string]any{
 		"expression":    expression,
 		"returnByValue": true,
 	}, nil); err != nil {
 		lease.Release()
 		t.Fatal(err)
+	}
+	if _, err := page.Epoch.WaitAfter(ctx, before); err != nil {
+		lease.Release()
+		t.Fatalf("wait render epoch delivery after %d: %v", before, err)
 	}
 	lease.Release()
 }
