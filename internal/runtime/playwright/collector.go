@@ -2,10 +2,13 @@ package playwright
 
 import (
 	"context"
+	"fmt"
+	"runtime"
 
 	"github.com/Homiakus/UiUxMaster/internal/engine"
 	"github.com/Homiakus/UiUxMaster/internal/evidence"
 	"github.com/Homiakus/UiUxMaster/internal/evidenceplan"
+	"github.com/Homiakus/UiUxMaster/internal/fidelity"
 )
 
 // PlaywrightCollector adapts a TruthPathAdapter for dispatcher L3 collection.
@@ -23,6 +26,37 @@ func NewCollector(adapter TruthPathAdapter, browser BrowserFamily) *PlaywrightCo
 		adapter: adapter,
 		browser: browser,
 	}
+}
+
+func (p *PlaywrightCollector) CalibrationEnvironment(ctx context.Context) (fidelity.CalibrationEnvironment, error) {
+	if p == nil || p.adapter == nil {
+		return fidelity.CalibrationEnvironment{}, fmt.Errorf("playwright: calibration identity requires adapter")
+	}
+	caps := p.adapter.Capabilities()
+	if !caps.Ready {
+		if _, err := p.adapter.Probe(ctx); err != nil {
+			return fidelity.CalibrationEnvironment{}, err
+		}
+		caps = p.adapter.Capabilities()
+	}
+	browserVersion := caps.BrowserVersions[p.browser]
+	if browserVersion == "" {
+		return fidelity.CalibrationEnvironment{}, fmt.Errorf("playwright: browser %s has no attested calibration version", p.browser)
+	}
+	env := fidelity.CalibrationEnvironment{
+		RendererName:    "playwright-" + string(p.browser),
+		RendererVersion: runtimeIdentity(caps.WorkerVersion, caps.PlaywrightVersion, browserVersion),
+		FidelityID:      "truthpath:" + runtimeIdentity(caps.WorkerVersion, caps.PlaywrightVersion, browserVersion),
+		BrowserFamily:   string(p.browser),
+		BrowserVersion:  browserVersion,
+		WorkerVersion:   caps.WorkerVersion,
+		RuntimeVersion:  caps.PlaywrightVersion,
+		Platform:        runtime.GOOS + "/" + runtime.GOARCH,
+	}
+	if err := env.Validate(); err != nil {
+		return fidelity.CalibrationEnvironment{}, err
+	}
+	return env, nil
 }
 
 // CollectL3 satisfies dispatcher.L3Collector.
