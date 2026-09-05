@@ -14,7 +14,10 @@ import (
 	"github.com/Homiakus/UiUxMaster/internal/verifier"
 )
 
-// PipelineTelemetry provides comprehensive latency accounting across all pipeline stages.
+// PipelineTelemetry provides non-overlapping canonical stage timings plus
+// provenance counters for the two scope-planning stages. MeasuredStageMS is the
+// sum of the listed sequential stages; UnattributedMS is orchestration overhead
+// and is never assigned to a named stage, preventing double counting.
 type PipelineTelemetry struct {
 	ImpactMS       float64 `json:"impact_ms"`
 	InvalidationMS float64 `json:"invalidation_ms"`
@@ -23,9 +26,19 @@ type PipelineTelemetry struct {
 	CollectMS      float64 `json:"collect_ms"`
 	VerifyMS       float64 `json:"verify_ms"`
 	SynthesisMS    float64 `json:"synthesis_ms"`
-	TotalMS        float64 `json:"total_ms"`
-	Tier           string  `json:"tier"`
-	ScopeSize      int     `json:"scope_size"`
+	MeasuredStageMS float64 `json:"measured_stage_ms"`
+	UnattributedMS  float64 `json:"unattributed_ms"`
+	TotalMS         float64 `json:"total_ms"`
+
+	ImpactNodes        int `json:"impact_nodes"`
+	ImpactUnknown      int `json:"impact_unknown"`
+	ScopeComponents    int `json:"scope_components"`
+	ScopeRoutes        int `json:"scope_routes"`
+	ScopeRegions       int `json:"scope_regions"`
+	ScopeViewports     int `json:"scope_viewports"`
+	ScopeThemes        int `json:"scope_themes"`
+	ScopeSize          int `json:"scope_size"`
+	Tier               string `json:"tier"`
 }
 
 // PipelineResult encapsulates the complete execution trace from change to decision.
@@ -47,6 +60,8 @@ type PipelineResult struct {
 type Pipeline struct {
 	Resolver          *impact.Resolver
 	Policy            *invalidation.Policy
+	ImpactStage       ImpactStageFunc
+	InvalidationStage InvalidationStageFunc
 	Collector         Collector
 	VerPolicy         verifier.Policy
 	Capabilities      fastrender.Capabilities
@@ -64,13 +79,23 @@ func (p *Pipeline) Execute(ctx context.Context, req ValidationRequest) (Pipeline
 
 	startTotal := time.Now()
 
+	// 1a. Impact resolution: source/change graph -> ImpactSet only.
 	startImpact := time.Now()
-	req, scope, err := PlanScope(ctx, req, p.Resolver, p.Policy)
+	req, impactSet, err := p.resolveImpactStage(ctx, req)
 	if err != nil {
-		return PipelineResult{}, fmt.Errorf("pipeline: plan scope: %w", err)
+		return PipelineResult{}, fmt.Errorf("pipeline: resolve impact: %w", err)
 	}
-	elapsedImpact := float64(time.Since(startImpact).Microseconds()) / 1000.0
+	elapsedImpact := pipelineDurationMS(time.Since(startImpact))
 
+	// 1b. Invalidation: resolved ImpactSet -> bounded ValidationScope only.
+	startInvalidation := time.Now()
+	req, scope, err := p.invalidateStage(ctx, req, impactSet)
+	if err != nil {
+		return PipelineResult{}, fmt.Errorf("pipeline: invalidate impact: %w", err)
+	}
+	elapsedInvalidation := pipelineDurationMS(time.Since(startInvalidation))
+
+	// 2. Fidelity Risk Assessment
 	startFidelity := time.Now()
 	features := fidelity.ScanSourceFeatures(fidelity.SourceInput{
 		HTML:                        req.HTML,
@@ -92,12 +117,14 @@ func (p *Pipeline) Execute(ctx context.Context, req ValidationRequest) (Pipeline
 		fidelityCaps.Supported[fidelity.Feature(fn)] = true
 	}
 	assessment := fidelity.Assess(features, fidelityCaps)
-	elapsedFidelity := float64(time.Since(startFidelity).Microseconds()) / 1000.0
+	elapsedFidelity := pipelineDurationMS(time.Since(startFidelity))
 
+	// 3. Converged validation route/evidence plan.
 	startRoute := time.Now()
 	plan := PlanValidationRoute(req, assessment, caps)
-	elapsedRoute := float64(time.Since(startRoute).Microseconds()) / 1000.0
+	elapsedRoute := pipelineDurationMS(time.Since(startRoute))
 
+	// 4. Runtime dispatch and evidence collection.
 	startCollect := time.Now()
 	packet, err := p.Collector.Collect(ctx, req, plan)
 	if err != nil {
@@ -109,21 +136,21 @@ func (p *Pipeline) Execute(ctx context.Context, req ValidationRequest) (Pipeline
 	if err := ValidateRevisionAttestation(req, packet); err != nil {
 		return PipelineResult{}, fmt.Errorf("pipeline: revision attestation: %w", err)
 	}
-	elapsedCollect := float64(time.Since(startCollect).Microseconds()) / 1000.0
+	elapsedCollect := pipelineDurationMS(time.Since(startCollect))
 
-	// No verifier or engine decision sees evidence before tier and revision
-	// provenance have passed their independent fail-closed guards.
+	// 5. Deterministic verifier. No verifier sees evidence before tier/revision
+	// provenance has passed fail-closed guards.
 	startVerify := time.Now()
 	vPolicy := p.VerPolicy
 	if vPolicy.MinTargetWidth == 0 {
 		vPolicy = verifier.DefaultPolicy()
 	}
 	vResult := verifier.Apply(&packet, vPolicy)
-	elapsedVerify := float64(time.Since(startVerify).Microseconds()) / 1000.0
+	elapsedVerify := pipelineDurationMS(time.Since(startVerify))
 
+	// 6. Synthesis + legal PASS authority.
 	startSynthesis := time.Now()
 	report := EvaluateForPlan(packet, plan.EvidencePlan)
-
 	var calibrationProvider CalibrationContextProvider
 	if provider, ok := p.Collector.(CalibrationContextProvider); ok {
 		calibrationProvider = provider
@@ -138,11 +165,20 @@ func (p *Pipeline) Execute(ctx context.Context, req ValidationRequest) (Pipeline
 			report.RecommendedNext = "recalibrate exact runtime parity before PASS"
 		}
 	}
-	elapsedSynthesis := float64(time.Since(startSynthesis).Microseconds()) / 1000.0
+	elapsedSynthesis := pipelineDurationMS(time.Since(startSynthesis))
 
-	totalMS := float64(time.Since(startTotal).Microseconds()) / 1000.0
+	totalMS := pipelineDurationMS(time.Since(startTotal))
+	measuredStageMS := elapsedImpact + elapsedInvalidation + elapsedFidelity + elapsedRoute + elapsedCollect + elapsedVerify + elapsedSynthesis
+	unattributedMS := totalMS - measuredStageMS
+	if unattributedMS < 0 {
+		// Independent intervals are sequential and should fit inside TotalMS. A
+		// tiny negative value can only be floating-point conversion noise; never
+		// push it into a named stage or double-count it.
+		unattributedMS = 0
+	}
+
 	packet.Latency.ImpactMS = elapsedImpact
-	packet.Latency.InvalidationMS = elapsedImpact
+	packet.Latency.InvalidationMS = elapsedInvalidation
 	packet.Latency.FidelityScanMS = elapsedFidelity
 	packet.Latency.RouteMS = elapsedRoute
 	if plan.Route.Tier == TierFastRender {
@@ -154,16 +190,25 @@ func (p *Pipeline) Execute(ctx context.Context, req ValidationRequest) (Pipeline
 
 	scopeSize := len(scope.Components) + len(scope.Routes) + len(scope.Regions)
 	telemetry := PipelineTelemetry{
-		ImpactMS:       elapsedImpact,
-		InvalidationMS: elapsedImpact,
-		FidelityScanMS: elapsedFidelity,
-		RouteMS:        elapsedRoute,
-		CollectMS:      elapsedCollect,
-		VerifyMS:       elapsedVerify,
-		SynthesisMS:    elapsedSynthesis,
-		TotalMS:        totalMS,
-		Tier:           string(plan.Route.Tier),
-		ScopeSize:      scopeSize,
+		ImpactMS:          elapsedImpact,
+		InvalidationMS:    elapsedInvalidation,
+		FidelityScanMS:    elapsedFidelity,
+		RouteMS:           elapsedRoute,
+		CollectMS:         elapsedCollect,
+		VerifyMS:          elapsedVerify,
+		SynthesisMS:       elapsedSynthesis,
+		MeasuredStageMS:   measuredStageMS,
+		UnattributedMS:    unattributedMS,
+		TotalMS:           totalMS,
+		ImpactNodes:       len(impactSet.NodeIDs),
+		ImpactUnknown:     len(impactSet.UnknownIDs),
+		ScopeComponents:   len(scope.Components),
+		ScopeRoutes:       len(scope.Routes),
+		ScopeRegions:      len(scope.Regions),
+		ScopeViewports:    len(scope.Viewports),
+		ScopeThemes:       len(scope.Themes),
+		ScopeSize:         scopeSize,
+		Tier:              string(plan.Route.Tier),
 	}
 
 	return PipelineResult{
@@ -177,4 +222,8 @@ func (p *Pipeline) Execute(ctx context.Context, req ValidationRequest) (Pipeline
 		PassAuthority: passAuthority,
 		Telemetry:     telemetry,
 	}, nil
+}
+
+func pipelineDurationMS(d time.Duration) float64 {
+	return float64(d.Nanoseconds()) / 1e6
 }
