@@ -103,6 +103,9 @@ func (s *EpMemoryStore) Commit(ctx context.Context, bundle AdmissionBundle) erro
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if err := s.validateBundleAgainstStoreLocked(bundle); err != nil {
+		return err
+	}
 	s.applyBundleLocked(bundle)
 	return nil
 }
@@ -130,6 +133,9 @@ func (s *EpMemoryStore) CommitOnce(ctx context.Context, op sideeffect.Operation,
 		prior.Applied = false
 		return prior, nil
 	}
+	if err := s.validateBundleAgainstStoreLocked(bundle); err != nil {
+		return sideeffect.Receipt{}, err
+	}
 
 	s.applyBundleLocked(bundle)
 	receipt := sideeffect.Receipt{
@@ -153,10 +159,15 @@ func validateAdmissionBundle(bundle AdmissionBundle) error {
 		return fmt.Errorf("%w: admission bundle source namespace is required", ErrScopeRequired)
 	}
 	mapper := NewAdmissionMapper(nil)
+	seenIDs := make(map[string]struct{}, len(bundle.Atoms))
 	for _, atom := range bundle.Atoms {
 		if strings.TrimSpace(atom.ID) == "" || !atom.Namespace.IsValid() {
 			return fmt.Errorf("%w: invalid atom id/namespace", ErrInvalidAtomData)
 		}
+		if _, duplicate := seenIDs[atom.ID]; duplicate {
+			return fmt.Errorf("%w: duplicate atom id %s inside bundle", ErrAtomAlreadyExists, atom.ID)
+		}
+		seenIDs[atom.ID] = struct{}{}
 		if !CanAdmitOrdinary(bundle.SourceNamespace, atom.Namespace) {
 			return fmt.Errorf("%w: bundle source %s cannot write atom %s in %s", ErrAdmissionRoute, bundle.SourceNamespace, atom.ID, atom.Namespace)
 		}
@@ -170,6 +181,9 @@ func validateAdmissionBundle(bundle AdmissionBundle) error {
 	for _, edge := range bundle.Edges {
 		if strings.TrimSpace(edge.FromID) == "" || strings.TrimSpace(edge.ToID) == "" {
 			return fmt.Errorf("%w: edge endpoints are required", ErrInvalidAtomData)
+		}
+		if edge.Weight < 0 || edge.Weight > 1 {
+			return fmt.Errorf("%w: edge %s->%s weight outside [0,1]", ErrInvalidAtomData, edge.FromID, edge.ToID)
 		}
 		if err := validateStoredProvenance(mapper, bundle.SourceNamespace, bundle.SourceNamespace, edge.Provenance); err != nil {
 			return fmt.Errorf("edge %s->%s: %w", edge.FromID, edge.ToID, err)
@@ -191,6 +205,58 @@ func validateStoredProvenance(mapper *AdmissionMapper, source, target Namespace,
 		}
 	} else if source.IsGlobal() && prov.ProjectScope != "global" {
 		return fmt.Errorf("%w: global provenance must use project_scope=global", ErrAdmissionRoute)
+	}
+	return nil
+}
+
+// validateBundleAgainstStoreLocked closes graph-level authorization holes that
+// cannot be checked by the mapper alone: cross-namespace ID collisions and
+// edges that point into another private project or mutate a global conflict set.
+func (s *EpMemoryStore) validateBundleAgainstStoreLocked(bundle AdmissionBundle) error {
+	if len(bundle.Atoms) == 0 && len(bundle.Edges) == 0 {
+		return nil
+	}
+	bundleNS := make(map[string]Namespace, len(bundle.Atoms))
+	for _, atom := range bundle.Atoms {
+		bundleNS[atom.ID] = atom.Namespace
+		if existing, ok := s.atoms[atom.ID]; ok {
+			if !existing.Atom.Namespace.Equal(atom.Namespace) {
+				return fmt.Errorf("%w: atom id %s already belongs to %s, cannot rewrite as %s", ErrAdmissionRoute, atom.ID, existing.Atom.Namespace, atom.Namespace)
+			}
+			if existing.Status != StatusActive {
+				return fmt.Errorf("%w: atom id %s is %s and cannot be resurrected by ordinary admission", ErrAtomAlreadyExists, atom.ID, existing.Status)
+			}
+			if !CanMutate(bundle.SourceNamespace, existing.Atom.Namespace) {
+				return fmt.Errorf("%w: source %s cannot replace existing atom %s in %s", ErrUnauthorizedAccess, bundle.SourceNamespace, atom.ID, existing.Atom.Namespace)
+			}
+		}
+	}
+
+	resolve := func(id string) (Namespace, bool) {
+		if ns, ok := bundleNS[id]; ok {
+			return ns, true
+		}
+		if stored, ok := s.atoms[id]; ok && stored.Status == StatusActive {
+			return stored.Atom.Namespace, true
+		}
+		return Namespace{}, false
+	}
+
+	for _, edge := range bundle.Edges {
+		fromNS, fromOK := resolve(edge.FromID)
+		toNS, toOK := resolve(edge.ToID)
+		if !fromOK || !toOK {
+			return fmt.Errorf("%w: edge %s->%s has unresolved endpoint", ErrInvalidAtomData, edge.FromID, edge.ToID)
+		}
+		if !CanMutate(bundle.SourceNamespace, fromNS) {
+			return fmt.Errorf("%w: source %s cannot assert outgoing edge from %s in %s", ErrUnauthorizedAccess, bundle.SourceNamespace, edge.FromID, fromNS)
+		}
+		if !CanAccess(bundle.SourceNamespace, toNS) {
+			return fmt.Errorf("%w: edge %s->%s crosses into inaccessible namespace %s", ErrUnauthorizedAccess, edge.FromID, edge.ToID, toNS)
+		}
+		if (edge.Relation == RelRefutes || edge.Relation == RelCounterexampleTo) && !CanMutate(bundle.SourceNamespace, toNS) {
+			return fmt.Errorf("%w: conflict edge %s cannot mutate target %s in %s", ErrUnauthorizedAccess, edge.Relation, edge.ToID, toNS)
+		}
 	}
 	return nil
 }
@@ -302,11 +368,17 @@ func (s *EpMemoryStore) Supersede(ctx context.Context, scope Namespace, oldAtomI
 	if !scope.IsValid() {
 		return ErrScopeRequired
 	}
+	if strings.TrimSpace(newAtom.ID) == "" || !newAtom.Namespace.IsValid() {
+		return ErrInvalidAtomData
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	old, ok := s.atoms[oldAtomID]
 	if !ok || old.Status != StatusActive {
 		return fmt.Errorf("%w: %s", ErrAtomNotFound, oldAtomID)
+	}
+	if existing, exists := s.atoms[newAtom.ID]; exists && newAtom.ID != oldAtomID {
+		return fmt.Errorf("%w: replacement id %s already exists with status %s", ErrAtomAlreadyExists, newAtom.ID, existing.Status)
 	}
 	if !CanMutate(scope, old.Atom.Namespace) || !CanMutate(scope, newAtom.Namespace) {
 		return fmt.Errorf("%w: %s cannot supersede %s across namespace boundary", ErrUnauthorizedAccess, scope, oldAtomID)
@@ -386,7 +458,8 @@ func (s *EpMemoryStore) GetEdges(ctx context.Context, scope Namespace, atomID st
 
 func (s *EpMemoryStore) edgeVisibleLocked(scope Namespace, edge MemoryEdge) bool {
 	for _, id := range []string{edge.FromID, edge.ToID} {
-		if stored, ok := s.atoms[id]; ok && stored.Status == StatusActive && !CanAccess(scope, stored.Atom.Namespace) {
+		stored, ok := s.atoms[id]
+		if !ok || stored.Status != StatusActive || !CanAccess(scope, stored.Atom.Namespace) {
 			return false
 		}
 	}
