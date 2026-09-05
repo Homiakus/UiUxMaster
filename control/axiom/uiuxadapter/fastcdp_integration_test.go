@@ -239,6 +239,9 @@ func TestAxiomFastCDPEndToEndIntegration(t *testing.T) {
 	}
 }
 
+// mutateWarmPage is a real CDP delivery barrier, not merely a Runtime.evaluate
+// barrier. Runtime.bindingCalled is consumed asynchronously by EpochBridge, so
+// the helper waits until the render epoch has actually reached the Go gate.
 func mutateWarmPage(t *testing.T, ctx context.Context, resident *fastcdp.ResidentRuntime, expression string) {
 	t.Helper()
 	lease, err := resident.Pages.Acquire(ctx)
@@ -250,12 +253,17 @@ func mutateWarmPage(t *testing.T, ctx context.Context, resident *fastcdp.Residen
 		lease.Release()
 		t.Fatal("nil warm page")
 	}
+	before := page.Epoch.Current()
 	if err := resident.Conn.Call(ctx, string(page.Session.SessionID), "Runtime.evaluate", map[string]any{
 		"expression":    expression,
 		"returnByValue": true,
 	}, nil); err != nil {
 		lease.Release()
 		t.Fatal(err)
+	}
+	if _, err := page.Epoch.WaitAfter(ctx, before); err != nil {
+		lease.Release()
+		t.Fatalf("wait render epoch delivery after %d: %v", before, err)
 	}
 	lease.Release()
 }
