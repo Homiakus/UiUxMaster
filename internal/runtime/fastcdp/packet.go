@@ -37,13 +37,14 @@ func DefaultSnapshotOptions() SnapshotOptions {
 }
 
 type PacketOptions struct {
-	RunID      string
-	Scenario   string
-	URL        string
-	Viewport   evidence.Viewport
-	Browser    BrowserVersion
-	FidelityID string
-	Region     *CaptureRegionOptions
+	RunID             string
+	Scenario          string
+	URL               string
+	Viewport          evidence.Viewport
+	Browser           BrowserVersion
+	FidelityID        string
+	Region            *CaptureRegionOptions
+	ExpectedRevision  string
 }
 
 // ToPacket converts one stable CollectedEvidence result into the repository's
@@ -73,6 +74,13 @@ func ToPacket(collected CollectedEvidence, options PacketOptions) evidence.Packe
 			TotalMS:         durationMS(collected.Timing.Total),
 			Retries:         collected.Timing.Retries,
 		},
+	}
+	if options.ExpectedRevision != "" || collected.Revision != "" {
+		packet.Freshness = &evidence.RenderFreshness{
+			Epoch:            collected.Epoch,
+			ExpectedRevision: strings.TrimSpace(options.ExpectedRevision),
+			ObservedRevision: strings.TrimSpace(collected.Revision),
+		}
 	}
 	if packet.Viewport.Browser == "" {
 		packet.Viewport.Browser = options.Browser.Product
@@ -168,18 +176,18 @@ func projectAccessibilityIntoPacket(packet *evidence.Packet, tree AXTree) {
 	packet.Accessibility = make([]evidence.AccessibilityNode, 0, len(tree.Nodes))
 	for _, node := range tree.Nodes {
 		packet.Accessibility = append(packet.Accessibility, evidence.AccessibilityNode{
-			ID:            node.ID,
-			ParentID:      node.ParentID,
-			ChildIDs:      append([]string(nil), node.ChildIDs...),
-			BackendNodeID: node.BackendDOMNodeID,
-			FrameID:       node.FrameID,
-			Ignored:       node.Ignored,
+			ID:             node.ID,
+			ParentID:       node.ParentID,
+			ChildIDs:       append([]string(nil), node.ChildIDs...),
+			BackendNodeID:  node.BackendDOMNodeID,
+			FrameID:        node.FrameID,
+			Ignored:        node.Ignored,
 			IgnoredReasons: append([]string(nil), node.IgnoredReasons...),
-			Role:          node.Role,
-			Name:          node.Name,
-			Description:   node.Description,
-			Value:         node.Value,
-			Properties:    cloneStrings(node.Properties),
+			Role:           node.Role,
+			Name:           node.Name,
+			Description:    node.Description,
+			Value:          node.Value,
+			Properties:     cloneStrings(node.Properties),
 		})
 	}
 	packet.AriaSnapshot = tree.TextSnapshot()
@@ -199,7 +207,7 @@ func projectFontsIntoPacket(packet *evidence.Packet, fonts FontState) {
 
 func projectDiagnosticsIntoPacket(packet *evidence.Packet, diagnostics DiagnosticSnapshot) {
 	packet.Diagnostics = &evidence.DiagnosticsEvidence{
-		Complete: diagnostics.Complete,
+		Complete:       diagnostics.Complete,
 		DroppedMethods: append([]string(nil), diagnostics.DroppedMethods...),
 	}
 	for _, event := range diagnostics.Events {

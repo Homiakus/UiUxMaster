@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -30,9 +31,7 @@ type fastCDPPageState struct {
 
 // FastCDPCollector is the real L2 execution-plane implementation used by the
 // Axiom control slice. Browser/process/page ownership stays in ResidentRuntime;
-// the collector only leases a warm page, asks for the evidence shape selected
-// by evidenceplan, projects one canonical packet, and advances ephemeral
-// per-page watermarks after an accepted stable capture.
+// freshness semantics stay in shared fastcdp core.
 type FastCDPCollector struct {
 	runtime *fastcdp.ResidentRuntime
 	config  FastCDPCollectorConfig
@@ -87,15 +86,13 @@ func (c *FastCDPCollector) Collect(ctx context.Context, change controlplane.Chan
 		if page.Diagnostics == nil {
 			return evidence.Packet{}, fmt.Errorf("uiuxadapter: plan requires diagnostics but warm-page diagnostics are disabled")
 		}
-		// The zero mark deliberately means "from the bounded beginning of this
-		// warm page" on the first accepted cycle. Later cycles advance exactly to
-		// DiagnosticSnapshot.Through, so no event range is silently skipped.
 		mark := state.Diagnostics
 		diagnosticMark = &mark
 	}
 
 	req := fastcdp.RequestFromPlan(plan, fastcdp.PlannedRequestOptions{
 		RequireAfter:       state.Epoch,
+		ExpectedRevision:   strings.TrimSpace(change.SourceDigest),
 		WaitForNewEpoch:    c.config.WaitForNewEpoch,
 		DiagnosticsSince:   diagnosticMark,
 		MaxEpochRetries:    c.config.MaxEpochRetries,
@@ -123,11 +120,12 @@ func (c *FastCDPCollector) Collect(ctx context.Context, change controlplane.Chan
 		return evidence.Packet{}, wrapped
 	}
 	packet := fastcdp.ToPacket(collected, fastcdp.PacketOptions{
-		Scenario:   c.config.Scenario,
-		Viewport:   c.config.Viewport,
-		Browser:    c.browser,
-		FidelityID: c.config.FidelityID,
-		Region:     req.Region,
+		Scenario:         c.config.Scenario,
+		Viewport:         c.config.Viewport,
+		Browser:          c.browser,
+		FidelityID:       c.config.FidelityID,
+		Region:           req.Region,
+		ExpectedRevision: req.ExpectedRevision,
 	})
 	if req.Region != nil && packet.Pixels != nil {
 		packet.VisualRegions = append(packet.VisualRegions, evidence.VisualRegion{
@@ -165,6 +163,11 @@ func (c *FastCDPCollector) dropPageState(target fastcdp.TargetID) {
 func shouldDiscardCollectorPage(err error) bool {
 	if err == nil {
 		return false
+	}
+	// Revision mismatches are strong evidence that this warm page is associated
+	// with the wrong source/build state and therefore must be discarded.
+	if errors.Is(err, fastcdp.ErrRevisionMismatch) {
+		return true
 	}
 	return !errors.Is(err, context.Canceled) &&
 		!errors.Is(err, context.DeadlineExceeded) &&

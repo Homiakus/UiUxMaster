@@ -9,10 +9,11 @@ import (
 	"time"
 )
 
-var ErrEpochChanged = errors.New("fastcdp: render epoch changed during evidence capture")
+var ErrEpochChanged = errors.New("fastcdp: render token changed during evidence capture")
 
 type EvidenceRequest struct {
 	RequireAfter       uint64
+	ExpectedRevision   string
 	WaitForNewEpoch    bool
 	Snapshot           *SnapshotOptions
 	Region             *CaptureRegionOptions
@@ -37,6 +38,7 @@ type EvidenceTiming struct {
 
 type CollectedEvidence struct {
 	Epoch         uint64
+	Revision      string
 	Snapshot      *Snapshot
 	RGBA          *image.RGBA
 	CaptureStats  CaptureStats
@@ -70,24 +72,33 @@ func (p *WarmPage) CollectEvidence(ctx context.Context, conn *Connection, req Ev
 	var timing EvidenceTiming
 	if req.WaitForNewEpoch {
 		waitStarted := time.Now()
-		if _, err := p.Epoch.WaitAfter(ctx, req.RequireAfter); err != nil {
+		if _, err := p.Epoch.WaitAfterRevision(ctx, req.RequireAfter, req.ExpectedRevision); err != nil {
 			return CollectedEvidence{}, err
 		}
 		timing.WaitEpoch = time.Since(waitStarted)
-	} else if current := p.Epoch.Current(); current < req.RequireAfter {
-		return CollectedEvidence{}, fmt.Errorf("fastcdp: current render epoch %d is older than required %d", current, req.RequireAfter)
+	} else {
+		if _, err := p.Epoch.ValidateCurrentRevision(req.RequireAfter, req.ExpectedRevision); err != nil {
+			return CollectedEvidence{}, err
+		}
 	}
 
 	for attempt := 0; attempt <= retries; attempt++ {
-		epochBefore := p.Epoch.Current()
+		tokenBefore := p.Epoch.CurrentToken()
+		if req.ExpectedRevision != "" && tokenBefore.Revision != req.ExpectedRevision {
+			return CollectedEvidence{}, &RevisionMismatchError{Expected: req.ExpectedRevision, Observed: tokenBefore}
+		}
 		result, err := p.captureStableAttempt(ctx, conn, req)
 		if err != nil {
 			return CollectedEvidence{}, err
 		}
-		epochAfter := p.Epoch.Current()
+		tokenAfter := p.Epoch.CurrentToken()
 		accumulateTiming(&timing, result.Timing)
-		if epochAfter == epochBefore {
-			result.Epoch = epochAfter
+		if tokenAfter == tokenBefore {
+			if req.ExpectedRevision != "" && tokenAfter.Revision != req.ExpectedRevision {
+				return CollectedEvidence{}, &RevisionMismatchError{Expected: req.ExpectedRevision, Observed: tokenAfter}
+			}
+			result.Epoch = tokenAfter.Epoch
+			result.Revision = tokenAfter.Revision
 			timing.Retries = attempt
 			timing.Total = time.Since(started)
 			result.Timing = timing
@@ -96,7 +107,10 @@ func (p *WarmPage) CollectEvidence(ctx context.Context, conn *Connection, req Ev
 		if attempt == retries {
 			timing.Retries = attempt
 			timing.Total = time.Since(started)
-			return CollectedEvidence{}, fmt.Errorf("%w: before=%d after=%d retries=%d", ErrEpochChanged, epochBefore, epochAfter, attempt)
+			return CollectedEvidence{}, fmt.Errorf("%w: before=%+v after=%+v retries=%d", ErrEpochChanged, tokenBefore, tokenAfter, attempt)
+		}
+		if req.ExpectedRevision != "" && tokenAfter.Revision != req.ExpectedRevision {
+			return CollectedEvidence{}, &RevisionMismatchError{Expected: req.ExpectedRevision, Observed: tokenAfter}
 		}
 	}
 	panic("unreachable")

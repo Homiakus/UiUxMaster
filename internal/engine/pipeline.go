@@ -41,7 +41,7 @@ type PipelineResult struct {
 
 // Pipeline orchestrates the canonical validation path:
 // changed source/CSS token → ImpactSet → bounded ValidationScope →
-// fidelity route → WGGo or FastCDP → evidence.Packet → verifier → engine decision.
+// fidelity route → runtime evidence → attestation → verifier → engine decision.
 type Pipeline struct {
 	Resolver     *impact.Resolver
 	Policy       *invalidation.Policy
@@ -50,7 +50,6 @@ type Pipeline struct {
 	Capabilities fastrender.Capabilities
 }
 
-// Execute runs the complete canonical pipeline while recording end-to-end telemetry.
 func (p *Pipeline) Execute(ctx context.Context, req ValidationRequest) (PipelineResult, error) {
 	if err := ctx.Err(); err != nil {
 		return PipelineResult{}, err
@@ -61,7 +60,6 @@ func (p *Pipeline) Execute(ctx context.Context, req ValidationRequest) (Pipeline
 
 	startTotal := time.Now()
 
-	// 1. Impact Resolution & Validation Scope
 	startImpact := time.Now()
 	req, scope, err := PlanScope(ctx, req, p.Resolver, p.Policy)
 	if err != nil {
@@ -69,7 +67,6 @@ func (p *Pipeline) Execute(ctx context.Context, req ValidationRequest) (Pipeline
 	}
 	elapsedImpact := float64(time.Since(startImpact).Microseconds()) / 1000.0
 
-	// 2. Fidelity Risk Assessment
 	startFidelity := time.Now()
 	features := fidelity.ScanSourceFeatures(fidelity.SourceInput{
 		HTML:                        req.HTML,
@@ -93,12 +90,10 @@ func (p *Pipeline) Execute(ctx context.Context, req ValidationRequest) (Pipeline
 	assessment := fidelity.Assess(features, fidelityCaps)
 	elapsedFidelity := float64(time.Since(startFidelity).Microseconds()) / 1000.0
 
-	// 3. Converged Validation Plan (RouteDecision + EvidencePlan)
 	startRoute := time.Now()
 	plan := PlanValidationRoute(req, assessment, caps)
 	elapsedRoute := float64(time.Since(startRoute).Microseconds()) / 1000.0
 
-	// 4. Runtime Dispatch & Evidence Collection (L0 / L1 / L2 / L3)
 	startCollect := time.Now()
 	packet, err := p.Collector.Collect(ctx, req, plan)
 	if err != nil {
@@ -107,9 +102,13 @@ func (p *Pipeline) Execute(ctx context.Context, req ValidationRequest) (Pipeline
 	if err := ValidateCollectedEvidence(plan, packet); err != nil {
 		return PipelineResult{}, fmt.Errorf("pipeline: evidence attestation: %w", err)
 	}
+	if err := ValidateRevisionAttestation(req, packet); err != nil {
+		return PipelineResult{}, fmt.Errorf("pipeline: revision attestation: %w", err)
+	}
 	elapsedCollect := float64(time.Since(startCollect).Microseconds()) / 1000.0
 
-	// 5. Deterministic Verifier
+	// No verifier or engine decision sees evidence before both tier and revision
+	// provenance have passed their independent fail-closed guards.
 	startVerify := time.Now()
 	vPolicy := p.VerPolicy
 	if vPolicy.MinTargetWidth == 0 {
@@ -118,14 +117,11 @@ func (p *Pipeline) Execute(ctx context.Context, req ValidationRequest) (Pipeline
 	vResult := verifier.Apply(&packet, vPolicy)
 	elapsedVerify := float64(time.Since(startVerify).Microseconds()) / 1000.0
 
-	// 6. Engine Decision & Report
 	startSynthesis := time.Now()
 	report := EvaluateForPlan(packet, plan.EvidencePlan)
 	elapsedSynthesis := float64(time.Since(startSynthesis).Microseconds()) / 1000.0
 
 	totalMS := float64(time.Since(startTotal).Microseconds()) / 1000.0
-
-	// Populate canonical packet end-to-end telemetry
 	packet.Latency.ImpactMS = elapsedImpact
 	packet.Latency.InvalidationMS = elapsedImpact
 	packet.Latency.FidelityScanMS = elapsedFidelity
@@ -138,7 +134,6 @@ func (p *Pipeline) Execute(ctx context.Context, req ValidationRequest) (Pipeline
 	packet.Latency.TotalMS = totalMS
 
 	scopeSize := len(scope.Components) + len(scope.Routes) + len(scope.Regions)
-
 	telemetry := PipelineTelemetry{
 		ImpactMS:       elapsedImpact,
 		InvalidationMS: elapsedImpact,
