@@ -1,19 +1,9 @@
 {
   "schema_version": 1,
   "status": "active",
-  "authority": {
-    "master_plan": "MASTER_PLAN.md",
-    "risk_register": "docs/FMEA_RISK_REGISTER.md",
-    "governance_adr": "docs/adr/0002-fmea-risk-governance.md",
-    "execution_overlay": "planning/FMEA_EXECUTION_PLAN.md",
-    "tracker_issue": 15
-  },
-  "maturity_states": ["implemented", "integrated", "operationally_proven", "release_gated"],
-  "release_policy": {
-    "critical_open_blocks_production_claim": true,
-    "closure_requires_independent_evidence": true,
-    "runtime_fidelity_risk_is_separate": true
-  },
+  "authority": {"master_plan":"MASTER_PLAN.md","risk_register":"docs/FMEA_RISK_REGISTER.md","governance_adr":"docs/adr/0002-fmea-risk-governance.md","execution_overlay":"planning/FMEA_EXECUTION_PLAN.md","tracker_issue":15},
+  "maturity_states": ["implemented","integrated","operationally_proven","release_gated"],
+  "release_policy": {"critical_open_blocks_production_claim":true,"closure_requires_independent_evidence":true,"runtime_fidelity_risk_is_separate":true},
   "risks": [
     {"id":"FMEA-001","issue":3,"severity":10,"occurrence":1,"detection":2,"rpn":20,"initial_rpn":320,"priority":"low-residual","status":"closed","barrier":"verification_integrity","closure_pr":19,"closure_merge_sha":"e85cc1977493f481e4c76321bd829d297782325f","evidence":{"ci_run":204,"axiom_control_run":37,"truthpath_run":9}},
     {"id":"FMEA-002","issue":4,"severity":10,"occurrence":1,"detection":2,"rpn":20,"initial_rpn":420,"priority":"low-residual","status":"closed","barrier":"verification_integrity","closure_pr":17,"closure_merge_sha":"468abe87ac76d54b3e887951e30b71e300c450d7","evidence":{"ci_run":191,"axiom_control_run":33}},
@@ -21,20 +11,15 @@
     {"id":"FMEA-004","issue":6,"severity":9,"occurrence":1,"detection":2,"rpn":18,"initial_rpn":360,"priority":"low-residual","status":"closed","barrier":"verification_integrity","closure_pr":18,"closure_merge_sha":"7433e1bd39c431ab0ac69181e2caf0fde9dd1921","evidence":{"ci_run":197,"truthpath_run":2}},
     {"id":"FMEA-005","issue":7,"severity":6,"occurrence":1,"detection":2,"rpn":12,"initial_rpn":240,"priority":"low-residual","status":"closed","barrier":"operational_correctness","closure_pr":23,"closure_merge_sha":"b574f86870c5e604998347f941fd961e3a8fc657","evidence":{"ci_run":230,"axiom_control_run":47,"truthpath_run":35,"benchmark_artifact_id":9965578584}},
     {"id":"FMEA-006","issue":8,"severity":7,"occurrence":9,"detection":3,"rpn":189,"priority":"high","status":"open","barrier":"planning_delivery_trust","residual_target_rpn":28},
-    {"id":"FMEA-007","issue":9,"severity":9,"occurrence":1,"detection":2,"rpn":18,"initial_rpn":189,"priority":"low-residual","status":"closed","barrier":"operational_correctness","closure_pr":24,"closure_merge_sha":"e9e1139f93ad47c785841e99bed69a7d427b872e","evidence":{"ci_run":237,"axiom_control_run":50,"truthpath_run":42,"source_restart_test":"TestFMEA007SourceCASReplayAfterRestartIsExactlyOnce","source_cas_test":"TestFMEA007SourceCASRejectsConcurrentRevision","source_payload_drift_test":"TestFMEA007LogicalOperationRejectsPayloadMutation","memory_replay_test":"TestFMEA007CommitOnceReusesReceiptWithoutDuplicatingGraph","legacy_graph_dedupe_test":"TestFMEA007LegacyCommitStillDeduplicatesEdgesAndConflicts","memory_payload_drift_test":"TestFMEA007LogicalMemoryOperationRejectsPayloadDrift","axiom_crash_window_test":"TestFMEA007AxiomRetryReusesTargetEffectsAndStableActivityKey"}},
+    {"id":"FMEA-007","issue":9,"severity":9,"occurrence":1,"detection":2,"rpn":18,"initial_rpn":189,"priority":"low-residual","status":"closed","barrier":"operational_correctness","closure_pr":24,"closure_merge_sha":"e9e1139f93ad47c785841e99bed69a7d427b872e","evidence":{"ci_run":237,"axiom_control_run":50,"truthpath_run":42}},
     {"id":"FMEA-008","issue":10,"severity":9,"occurrence":1,"detection":2,"rpn":18,"initial_rpn":252,"priority":"low-residual","status":"closed","barrier":"verification_integrity","closure_pr":22,"closure_merge_sha":"d90b2c4fc99facaed4575b9cbe4f4c47bb5af41e","evidence":{"ci_run":224,"axiom_control_run":45,"truthpath_run":29}},
     {"id":"FMEA-009","issue":11,"severity":9,"occurrence":2,"detection":3,"rpn":54,"initial_rpn":315,"priority":"low-residual","status":"closed","barrier":"verification_integrity","closure_pr":20,"closure_merge_sha":"717e090b11e294dbdeb1032c1ed5bb99d4e4d017","evidence":{"ci_run":212,"truthpath_run":17}},
     {"id":"FMEA-010","issue":12,"severity":10,"occurrence":2,"detection":8,"rpn":160,"priority":"high","status":"open","barrier":"operational_correctness","residual_target_rpn":30},
     {"id":"FMEA-011","issue":13,"severity":8,"occurrence":4,"detection":4,"rpn":128,"priority":"high","status":"open","barrier":"planning_delivery_trust","residual_target_rpn":16},
-    {"id":"FMEA-012","issue":14,"severity":7,"occurrence":5,"detection":5,"rpn":175,"priority":"high","status":"open","barrier":"operational_correctness","residual_target_rpn":14}
+    {"id":"FMEA-012","issue":14,"severity":7,"occurrence":1,"detection":2,"rpn":14,"initial_rpn":175,"priority":"low-residual","status":"closed","barrier":"operational_correctness","closure_pr":25,"closure_merge_sha":"64053497b52cffd83de37ef3396aee2cdef4354a","evidence":{"ci_run":247,"axiom_control_run":56,"truthpath_run":52,"environment_key_test":"TestFMEA012EnvironmentKeyRejectsMaterialMismatch","pre_tolerance_test":"TestFMEA012ComparatorRejectsIncompatibleBeforeTolerance","dispatcher_mismatch_test":"TestFMEA012DispatcherRejectsIncompatibleBaselineBeforeTolerance","missing_identity_test":"TestFMEA012DispatcherRejectsBaselineWithoutEnvironment","determinism_test":"TestFMEA012ExactKeyComparisonIsDeterministic","reviewed_update_test":"TestFMEA012ReviewedBaselineUpdateRecordsOldNewIdentity","churn_partition_test":"TestFMEA012BaselineChurnMetricsArePartitionedByEnvironmentKey","digest_integrity_test":"TestFMEA012ComparatorRejectsBaselinePixelDigestMismatch","mask_escape_test":"TestFMEA012DynamicMaskCannotEscapeOwner"}}
   ],
-  "execution_order": ["FMEA-012", "FMEA-010", "FMEA-006", "FMEA-011"],
-  "completed": ["FMEA-002", "FMEA-004", "FMEA-001", "FMEA-009", "FMEA-003", "FMEA-008", "FMEA-005", "FMEA-007"],
-  "next_risk": "FMEA-012",
-  "metrics": {
-    "open_critical_risks": 0,
-    "open_high_risks": 4,
-    "sum_open_rpn": 652,
-    "sum_closed_residual_rpn": 180
-  }
+  "execution_order": ["FMEA-010","FMEA-006","FMEA-011"],
+  "completed": ["FMEA-002","FMEA-004","FMEA-001","FMEA-009","FMEA-003","FMEA-008","FMEA-005","FMEA-007","FMEA-012"],
+  "next_risk": "FMEA-010",
+  "metrics": {"open_critical_risks":0,"open_high_risks":3,"sum_open_rpn":477,"sum_closed_residual_rpn":194}
 }
