@@ -14,8 +14,6 @@ import (
 )
 
 // ValidationRequest is the protocol-independent input boundary for UI/UX validation.
-// Callers (MCP, Axiom, CLI, tests) supply changes, intent, and optional overrides,
-// and the engine orchestrates scope resolution and evidence planning.
 type ValidationRequest struct {
 	RunID             string                       `json:"run_id"`
 	ProjectID         string                       `json:"project_id,omitempty"`
@@ -40,7 +38,6 @@ type ValidationRequest struct {
 	Tolerance         uint8                        `json:"tolerance,omitempty"`
 }
 
-// Normalize ensures deterministic slices and sensible default values.
 func (r *ValidationRequest) Normalize() {
 	if r.RunID == "" {
 		r.RunID = "run:default"
@@ -59,20 +56,16 @@ func (r *ValidationRequest) Normalize() {
 	r.Themes = uniqueSorted(r.Themes)
 }
 
-// DeriveNeed computes the EvidenceNeed based on requested intent, final gate, and explicit needs.
 func (r *ValidationRequest) DeriveNeed() EvidenceNeed {
 	need := r.Need
-
 	if r.FinalGate {
 		need.Geometry = true
 		need.Styles = true
 		need.CleanState = true
 	}
-
 	if r.Region != nil {
 		need.Pixels = true
 	}
-
 	switch r.Intent {
 	case evidenceplan.IntentQuickStructural:
 		need.Geometry = true
@@ -91,7 +84,6 @@ func (r *ValidationRequest) DeriveNeed() EvidenceNeed {
 		need.Styles = true
 		need.Pixels = true
 	}
-
 	return need
 }
 
@@ -109,7 +101,6 @@ func hasFontToken(tokens []string) bool {
 	return false
 }
 
-// Signals converts the request into evidenceplan.Signals for evidence shape synthesis.
 func (r *ValidationRequest) Signals(risk fidelity.RiskLevel) evidenceplan.Signals {
 	return evidenceplan.Signals{
 		Intent:             r.Intent,
@@ -123,21 +114,17 @@ func (r *ValidationRequest) Signals(risk fidelity.RiskLevel) evidenceplan.Signal
 	}
 }
 
-// PlanScope coordinates impact analysis and invalidation policy to compute the authoritative
-// ValidationScope for the request without requiring any protocol-specific types.
-func PlanScope(ctx context.Context, req ValidationRequest, resolver *impact.Resolver, policy *invalidation.Policy) (ValidationRequest, invalidation.ValidationScope, error) {
+// ResolveImpact is the authoritative impact-resolution stage. It normalizes the
+// request and resolves changed source entities to an ImpactSet, but deliberately
+// does not perform validation-scope invalidation. Keeping this boundary explicit
+// makes impact cost independently measurable and prevents telemetry aliasing.
+func ResolveImpact(ctx context.Context, req ValidationRequest, resolver *impact.Resolver) (ValidationRequest, impact.ImpactSet, error) {
 	if err := ctx.Err(); err != nil {
-		return ValidationRequest{}, invalidation.ValidationScope{}, err
+		return ValidationRequest{}, impact.ImpactSet{}, err
 	}
-
 	req.Normalize()
 	req.Need = req.DeriveNeed()
 
-	if policy == nil {
-		policy = invalidation.DefaultPolicy()
-	}
-
-	// Prepare change set from changed files, tokens, and nodes
 	nodeIDs := make([]string, 0, len(req.ChangedFiles)+len(req.ChangedTokens)+len(req.ChangedNodes))
 	for _, f := range req.ChangedFiles {
 		nodeIDs = append(nodeIDs, "file:"+f)
@@ -148,37 +135,52 @@ func PlanScope(ctx context.Context, req ValidationRequest, resolver *impact.Reso
 	nodeIDs = append(nodeIDs, req.ChangedNodes...)
 	nodeIDs = uniqueSorted(nodeIDs)
 
-	var impactSet impact.ImpactSet
 	if resolver != nil && len(nodeIDs) > 0 {
-		var err error
-		impactSet, err = resolver.ApplyChanges(ctx, impact.ChangeSet{
-			NodeIDs: nodeIDs,
-		})
+		set, err := resolver.ApplyChanges(ctx, impact.ChangeSet{NodeIDs: nodeIDs})
 		if err != nil {
-			return ValidationRequest{}, invalidation.ValidationScope{}, fmt.Errorf("engine: apply changes: %w", err)
+			return ValidationRequest{}, impact.ImpactSet{}, fmt.Errorf("engine: apply changes: %w", err)
 		}
-	} else {
-		// Fallback minimal impact set if no graph resolver is provided
-		impactSet = impact.ImpactSet{
-			NodeIDs: nodeIDs,
-			Broad:   req.ForceWholeSite,
-		}
+		return req, set, nil
 	}
 
+	return req, impact.ImpactSet{
+		NodeIDs: nodeIDs,
+		Broad:   req.ForceWholeSite,
+	}, nil
+}
+
+// InvalidateImpact is the authoritative invalidation stage. It converts an
+// already-resolved ImpactSet to the bounded ValidationScope; it never performs
+// graph traversal/impact resolution itself.
+func InvalidateImpact(ctx context.Context, req ValidationRequest, set impact.ImpactSet, policy *invalidation.Policy) (ValidationRequest, invalidation.ValidationScope, error) {
+	if err := ctx.Err(); err != nil {
+		return ValidationRequest{}, invalidation.ValidationScope{}, err
+	}
+	if policy == nil {
+		policy = invalidation.DefaultPolicy()
+	}
 	opts := invalidation.Options{
 		ForceWholeSite: req.ForceWholeSite,
 		ForceRoutes:    req.TargetRoutes,
 		ForceViewports: req.Viewports,
 		ForceThemes:    req.Themes,
 	}
-
-	scope := policy.Invalidate(impactSet, opts)
+	scope := policy.Invalidate(set, opts)
 	req.Scope = scope
 	return req, scope, nil
 }
 
-// PlanProjectScope connects a ProjectIndex directly to the ValidationRequest, resolving
-// the authoritative ValidationScope from indexed repository files.
+// PlanScope is the compatibility/convenience wrapper. Canonical Pipeline timing
+// calls ResolveImpact and InvalidateImpact separately so this wrapper's combined
+// latency is never copied into two telemetry fields.
+func PlanScope(ctx context.Context, req ValidationRequest, resolver *impact.Resolver, policy *invalidation.Policy) (ValidationRequest, invalidation.ValidationScope, error) {
+	req, set, err := ResolveImpact(ctx, req, resolver)
+	if err != nil {
+		return ValidationRequest{}, invalidation.ValidationScope{}, err
+	}
+	return InvalidateImpact(ctx, req, set, policy)
+}
+
 func PlanProjectScope(ctx context.Context, req ValidationRequest, index *impact.ProjectIndex, policy *invalidation.Policy) (ValidationRequest, invalidation.ValidationScope, error) {
 	if err := ctx.Err(); err != nil {
 		return ValidationRequest{}, invalidation.ValidationScope{}, err
@@ -186,26 +188,21 @@ func PlanProjectScope(ctx context.Context, req ValidationRequest, index *impact.
 	if index == nil || index.Graph == nil {
 		return ValidationRequest{}, invalidation.ValidationScope{}, fmt.Errorf("engine: project index or graph is nil")
 	}
-
 	req.Normalize()
 	req.Need = req.DeriveNeed()
-
 	if policy == nil {
 		policy = invalidation.DefaultPolicy()
 	}
-
 	opts := invalidation.Options{
 		ForceWholeSite: req.ForceWholeSite,
 		ForceRoutes:    req.TargetRoutes,
 		ForceViewports: req.Viewports,
 		ForceThemes:    req.Themes,
 	}
-
 	scope, err := invalidation.ResolveProjectScope(ctx, index, req.ChangedFiles, policy, opts)
 	if err != nil {
 		return ValidationRequest{}, invalidation.ValidationScope{}, fmt.Errorf("engine: resolve project scope: %w", err)
 	}
-
 	req.Scope = scope
 	return req, scope, nil
 }
