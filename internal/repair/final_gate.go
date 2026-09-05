@@ -21,8 +21,7 @@ const (
 )
 
 // HeldOutEvaluationRequest intentionally contains only the candidate and final
-// independent evidence. The optimization loop never receives the private held-out
-// probes owned by the FinalGate.
+// independent evidence. The optimization loop never receives private probes.
 type HeldOutEvaluationRequest struct {
 	RunID         string
 	CandidateHTML string
@@ -32,28 +31,26 @@ type HeldOutEvaluationRequest struct {
 	ProtectedAxes []string
 }
 
-// HeldOutReport is aggregate-only completion evidence. Individual private probe
-// definitions remain inside the evaluator and are not fed back to the proposer.
+// HeldOutReport deliberately exposes aggregate statistics only. Probe identity,
+// predicates and failure details stay private so a subsequent repair iteration
+// cannot optimize directly against the held-out set.
 type HeldOutReport struct {
-	Total             int      `json:"total"`
-	Passed            int      `json:"passed"`
-	Failed            int      `json:"failed"`
-	RegressionEscapes int      `json:"regression_escapes"`
-	EscapeRate        float64  `json:"escape_rate"`
-	FailedProbeIDs    []string `json:"failed_probe_ids,omitempty"`
+	Total             int     `json:"total"`
+	Passed            int     `json:"passed"`
+	Failed            int     `json:"failed"`
+	RegressionEscapes int     `json:"regression_escapes"`
+	EscapeRate        float64 `json:"escape_rate"`
 }
 
-// HeldOutEvaluator owns hidden/perturbed checks that are not part of the repair
+// HeldOutEvaluator owns hidden/perturbed checks that are not part of repair
 // proposal signals.
 type HeldOutEvaluator interface {
 	Evaluate(context.Context, HeldOutEvaluationRequest) (HeldOutReport, error)
 }
 
-// HeldOutProbe is one private completion check. Implementations may own a second
-// browser/scenario runner, perturb source/environment, or inspect protected-axis
-// invariants. The repair proposer never receives this object.
+// HeldOutProbe is one private completion check. No public probe ID is required:
+// the proposer receives only aggregate HeldOutReport statistics.
 type HeldOutProbe interface {
-	ID() string
 	Evaluate(context.Context, HeldOutEvaluationRequest) error
 }
 
@@ -67,6 +64,9 @@ func NewPrivateHeldOutSuite(probes ...HeldOutProbe) *PrivateHeldOutSuite {
 }
 
 func (s *PrivateHeldOutSuite) Evaluate(ctx context.Context, req HeldOutEvaluationRequest) (HeldOutReport, error) {
+	if s == nil {
+		return HeldOutReport{}, nil
+	}
 	report := HeldOutReport{Total: len(s.probes)}
 	for _, probe := range s.probes {
 		if err := ctx.Err(); err != nil {
@@ -75,13 +75,11 @@ func (s *PrivateHeldOutSuite) Evaluate(ctx context.Context, req HeldOutEvaluatio
 		if probe == nil {
 			report.Failed++
 			report.RegressionEscapes++
-			report.FailedProbeIDs = append(report.FailedProbeIDs, "nil-probe")
 			continue
 		}
 		if err := probe.Evaluate(ctx, req); err != nil {
 			report.Failed++
 			report.RegressionEscapes++
-			report.FailedProbeIDs = append(report.FailedProbeIDs, probe.ID())
 			continue
 		}
 		report.Passed++
@@ -94,7 +92,7 @@ func (s *PrivateHeldOutSuite) Evaluate(ctx context.Context, req HeldOutEvaluatio
 
 // FinalVerificationRequest is the only input accepted by completion authority.
 // It deliberately excludes optimization critique/candidate scores so the final
-// verifier cannot accidentally reuse the reward signal as acceptance evidence.
+// verifier cannot reuse the reward signal as acceptance evidence.
 type FinalVerificationRequest struct {
 	RunID         string
 	ProjectID     string
@@ -107,9 +105,7 @@ type FinalVerificationRequest struct {
 	RiskClass     RepairRiskClass
 }
 
-// FinalGateResult is the independent completion record. Passed alone is not
-// enough: HostRepairEngine also verifies that the gate is independent from the
-// optimization pipeline before honoring it.
+// FinalGateResult is the independent completion record.
 type FinalGateResult struct {
 	VerifierID               string                     `json:"verifier_id"`
 	Independent              bool                       `json:"independent"`
@@ -133,8 +129,7 @@ type FinalGate interface {
 }
 
 // PipelineFinalGate performs a clean-state, final-gate re-capture using a
-// distinct canonical Pipeline, an independent critic instance and private
-// held-out probes.
+// distinct canonical Pipeline, an independent critic and private held-out probes.
 type PipelineFinalGate struct {
 	Pipeline        *engine.Pipeline
 	Critic          critic.Critic
@@ -174,21 +169,29 @@ func (g *PipelineFinalGate) Verify(ctx context.Context, req FinalVerificationReq
 		result.ReasonCodes = append(result.ReasonCodes, "final_pipeline_unconfigured")
 		return result, nil
 	}
-	if g.Critic == nil {
-		g.Critic = critic.New()
+
+	// Snapshot configuration into locals. Verify is read-only with respect to the
+	// gate object, so a gate can safely be shared by concurrent repair requests.
+	criticImpl := g.Critic
+	if criticImpl == nil {
+		criticImpl = critic.New()
 	}
-	if g.Comparator == nil {
-		g.Comparator = design.NewComparator()
+	comparator := g.Comparator
+	if comparator == nil {
+		comparator = design.NewComparator()
 	}
-	if g.MinHeldOutCases <= 0 {
-		g.MinHeldOutCases = 1
+	minHeldOutCases := g.MinHeldOutCases
+	if minHeldOutCases <= 0 {
+		minHeldOutCases = 1
 	}
-	if g.MaxEscapeRate < 0 {
-		g.MaxEscapeRate = 0
+	maxEscapeRate := g.MaxEscapeRate
+	if maxEscapeRate < 0 {
+		maxEscapeRate = 0
 	}
+	heldOutEvaluator := g.HeldOut
 
 	// FinalGate=true forces clean-state evidence. Combined with FMEA-001 this is
-	// fail-closed: absence of L3 cannot silently become an L2 completion PASS.
+	// fail-closed: absent L3 cannot silently become an L2 completion PASS.
 	baselineRes, err := g.Pipeline.Execute(ctx, engine.ValidationRequest{
 		RunID:     fmt.Sprintf("%s-final-baseline", req.RunID),
 		ProjectID: req.ProjectID,
@@ -224,7 +227,7 @@ func (g *PipelineFinalGate) Verify(ctx context.Context, req FinalVerificationReq
 	result.EvidenceTier = candidateRes.Packet.Renderer.Tier
 	result.Independent = true
 
-	baseCritique, err := g.Critic.Critique(ctx, critic.CritiqueRequest{
+	baseCritique, err := criticImpl.Critique(ctx, critic.CritiqueRequest{
 		RunID:         fmt.Sprintf("%s-final-baseline", req.RunID),
 		Profile:       req.Profile,
 		Packet:        baselineRes.Packet,
@@ -233,7 +236,7 @@ func (g *PipelineFinalGate) Verify(ctx context.Context, req FinalVerificationReq
 	if err != nil {
 		return result, fmt.Errorf("repair final gate: baseline critique: %w", err)
 	}
-	candCritique, err := g.Critic.Critique(ctx, critic.CritiqueRequest{
+	candCritique, err := criticImpl.Critique(ctx, critic.CritiqueRequest{
 		RunID:         fmt.Sprintf("%s-final-candidate", req.RunID),
 		Profile:       req.Profile,
 		Packet:        candidateRes.Packet,
@@ -244,7 +247,7 @@ func (g *PipelineFinalGate) Verify(ctx context.Context, req FinalVerificationReq
 	}
 	result.HardViolations = candCritique.HardViolations
 
-	comparison, err := g.Comparator.Compare(ctx, design.ComparisonRequest{
+	comparison, err := comparator.Compare(ctx, design.ComparisonRequest{
 		RunID:             fmt.Sprintf("%s-independent-final-comparison", req.RunID),
 		BaselineID:        "independent_baseline",
 		CandidateID:       "candidate_repaired",
@@ -260,10 +263,10 @@ func (g *PipelineFinalGate) Verify(ctx context.Context, req FinalVerificationReq
 	result.Comparison = comparison
 	result.ProtectedAxisRegressions = append([]string(nil), comparison.RegressedAxes...)
 
-	if g.HeldOut == nil {
+	if heldOutEvaluator == nil {
 		result.ReasonCodes = append(result.ReasonCodes, "held_out_evaluator_unconfigured")
 	} else {
-		heldOut, err := g.HeldOut.Evaluate(ctx, HeldOutEvaluationRequest{
+		heldOut, err := heldOutEvaluator.Evaluate(ctx, HeldOutEvaluationRequest{
 			RunID:         req.RunID,
 			CandidateHTML: req.CandidateHTML,
 			CandidateCSS:  req.CandidateCSS,
@@ -275,10 +278,10 @@ func (g *PipelineFinalGate) Verify(ctx context.Context, req FinalVerificationReq
 			return result, fmt.Errorf("repair final gate: held-out evaluation: %w", err)
 		}
 		result.HeldOut = heldOut
-		if heldOut.Total < g.MinHeldOutCases {
+		if heldOut.Total < minHeldOutCases {
 			result.ReasonCodes = append(result.ReasonCodes, "held_out_coverage_insufficient")
 		}
-		if heldOut.Failed > 0 || heldOut.EscapeRate > g.MaxEscapeRate {
+		if heldOut.Failed > 0 || heldOut.EscapeRate > maxEscapeRate {
 			result.ReasonCodes = append(result.ReasonCodes, "held_out_regression_escape")
 		}
 	}
@@ -295,9 +298,9 @@ func (g *PipelineFinalGate) Verify(ctx context.Context, req FinalVerificationReq
 
 	result.Passed = result.Independent &&
 		len(result.ReasonCodes) == 0 &&
-		result.HeldOut.Total >= g.MinHeldOutCases &&
+		result.HeldOut.Total >= minHeldOutCases &&
 		result.HeldOut.Failed == 0 &&
-		result.HeldOut.EscapeRate <= g.MaxEscapeRate &&
+		result.HeldOut.EscapeRate <= maxEscapeRate &&
 		comparison.PassedConstraints &&
 		comparison.PreferredCandidate == "candidate_repaired" &&
 		candCritique.HardViolations == 0
