@@ -3,6 +3,7 @@ package repair
 import (
 	"context"
 	"fmt"
+	"reflect"
 
 	"github.com/Homiakus/UiUxMaster/internal/critic"
 	"github.com/Homiakus/UiUxMaster/internal/design"
@@ -160,7 +161,33 @@ func (g *PipelineFinalGate) VerifierID() string {
 }
 
 func (g *PipelineFinalGate) IndependentFrom(optimization *engine.Pipeline) bool {
-	return g != nil && g.Pipeline != nil && g.Pipeline != optimization
+	if g == nil || g.Pipeline == nil || optimization == nil || g.Pipeline == optimization {
+		return false
+	}
+	// Different Pipeline wrappers are not sufficient if both still call the exact
+	// same collector object. That would let the optimization oracle become the
+	// completion oracle under a second pointer-shaped facade.
+	return !sameCollectorInstance(g.Pipeline.Collector, optimization.Collector)
+}
+
+func sameCollectorInstance(a, b engine.Collector) bool {
+	if a == nil || b == nil {
+		return false
+	}
+	va := reflect.ValueOf(a)
+	vb := reflect.ValueOf(b)
+	if va.Type() != vb.Type() {
+		return false
+	}
+	switch va.Kind() {
+	case reflect.Pointer, reflect.Map, reflect.Slice, reflect.Func, reflect.Chan:
+		return !va.IsNil() && !vb.IsNil() && va.Pointer() == vb.Pointer()
+	default:
+		if va.Comparable() && vb.Comparable() {
+			return va.Interface() == vb.Interface()
+		}
+	}
+	return false
 }
 
 func (g *PipelineFinalGate) Verify(ctx context.Context, req FinalVerificationRequest) (FinalGateResult, error) {
