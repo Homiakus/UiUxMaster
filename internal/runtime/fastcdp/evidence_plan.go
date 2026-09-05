@@ -3,17 +3,23 @@ package fastcdp
 import "github.com/Homiakus/UiUxMaster/internal/evidenceplan"
 
 type PlannedRequestOptions struct {
-	RequireAfter uint64
-	WaitForNewEpoch bool
-	DiagnosticsSince *DiagnosticMark
-	MaxEpochRetries int
+	RequireAfter       uint64
+	ExpectedRevision   string
+	WaitForNewEpoch    bool
+	DiagnosticsSince   *DiagnosticMark
+	MaxEpochRetries    int
 }
 
 // RequestFromPlan is the FastCDP adapter for the vendor-neutral evidence plan.
 // Diagnostics are included only when a cycle mark is supplied; callers should
 // mark the warm page immediately before applying the change under validation.
 func RequestFromPlan(plan evidenceplan.Plan, options PlannedRequestOptions) EvidenceRequest {
-	req := EvidenceRequest{RequireAfter: options.RequireAfter, WaitForNewEpoch: options.WaitForNewEpoch, MaxEpochRetries: options.MaxEpochRetries}
+	req := EvidenceRequest{
+		RequireAfter:     options.RequireAfter,
+		ExpectedRevision: options.ExpectedRevision,
+		WaitForNewEpoch:  options.WaitForNewEpoch,
+		MaxEpochRetries:  options.MaxEpochRetries,
+	}
 	if plan.Structural {
 		snapshot := DefaultSnapshotOptions()
 		req.Snapshot = &snapshot
