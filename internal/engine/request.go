@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/Homiakus/UiUxMaster/internal/evidence"
 	"github.com/Homiakus/UiUxMaster/internal/evidenceplan"
 	"github.com/Homiakus/UiUxMaster/internal/fidelity"
 	"github.com/Homiakus/UiUxMaster/internal/impact"
@@ -34,8 +35,25 @@ type ValidationRequest struct {
 	HTML              []byte                       `json:"html,omitempty"`
 	CSS               []byte                       `json:"css,omitempty"`
 	BaseURL           string                       `json:"base_url,omitempty"`
-	BaselineRGBA      *image.RGBA                  `json:"-"`
-	Tolerance         uint8                        `json:"tolerance,omitempty"`
+
+	// Material environment dimensions not discoverable from every renderer are
+	// explicit request inputs. They are not wildcards: protected baseline
+	// comparison fails closed when any required dimension remains unknown.
+	Platform        string `json:"platform,omitempty"`
+	Locale          string `json:"locale,omitempty"`
+	Timezone        string `json:"timezone,omitempty"`
+	FixtureRevision string `json:"fixture_revision,omitempty"`
+	FontSetDigest   string `json:"font_set_digest,omitempty"`
+
+	// Protected visual baseline input. Pixels alone never authorize comparison;
+	// BaselineEnvironment must accompany them and match the candidate's canonical
+	// environment key before tolerance or pixel diff is evaluated.
+	BaselineID          string                              `json:"baseline_id,omitempty"`
+	BaselineDigest      string                              `json:"baseline_digest,omitempty"`
+	BaselineEnvironment *evidence.RenderEnvironmentIdentity `json:"baseline_environment,omitempty"`
+	BaselineMasks       []evidence.DynamicMask              `json:"baseline_masks,omitempty"`
+	BaselineRGBA        *image.RGBA                         `json:"-"`
+	Tolerance           uint8                               `json:"tolerance,omitempty"`
 }
 
 func (r *ValidationRequest) Normalize() {
@@ -63,7 +81,7 @@ func (r *ValidationRequest) DeriveNeed() EvidenceNeed {
 		need.Styles = true
 		need.CleanState = true
 	}
-	if r.Region != nil {
+	if r.Region != nil || r.BaselineRGBA != nil {
 		need.Pixels = true
 	}
 	switch r.Intent {
